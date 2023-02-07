@@ -76,22 +76,22 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 | | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
 | - | - | - | - | - |
-| bottle | - | 97.2 | 97.2 | 97.2 |
-| cable | - | 84.8 | 84.8 | 84.8 |
-| capsule | - | 89.7 | 89.7 | 89.7 |
-| carpet | - | 92.8 | 92.8 | 92.8 |
-| grid | - | 47.3 | 47.3 | 47.3 |
-| hazelnut | - | 88.1 | 88.1 | 88.1 |
-| leather | - | 95.4 | 95.4 | 95.4 |
-| metal_nut | - | 71.0 | 71.0 | 71.0 |
-| pill | - | 80.1 | 80.1 | 80.1 |
-| screw | - | 66.7 | 66.7 | 66.7 |
-| tile | - | 96.5 | 96.5 | 96.5 |
-| toothbrush | - | 88.9 | 88.9 | 88.9 |
-| transistor | - | 90.3 | 90.3 | 90.3 |
-| wood | - | 95.8 | 95.8 | 95.8 |
-| zipper | - | 96.6 | 96.6 | 96.6 |
-| Average | 85.5 | 85.4 | 85.4 | 85.4 |
+| bottle | - | 96.5 | XX.X | XX.X |
+| cable | - | 84.7 | XX.X | XX.X |
+| capsule | - | 90.5 | XX.X | XX.X |
+| carpet | - | 92.4 | XX.X | XX.X |
+| grid | - | 49.5 | XX.X | XX.X |
+| hazelnut | - | 89.3 | XX.X | XX.X |
+| leather | - | 94.9 | XX.X | XX.X |
+| metal_nut | - | 71.2 | XX.X | XX.X |
+| pill | - | 79.9 | XX.X | XX.X |
+| screw | - | 67.1 | XX.X | XX.X |
+| tile | - | 96.7 | XX.X | XX.X |
+| toothbrush | - | 86.7 | XX.X | XX.X |
+| transistor | - | 90.4 | XX.X | XX.X |
+| wood | - | 97.0 | XX.X | XX.X |
+| zipper | - | 96.4 | XX.X | XX.X |
+| Average | 85.5 | 85.5 | XX.X | XX.X |
 
 <br/>
 
@@ -99,22 +99,22 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 | | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
 | - | - | - | - | - |
-| bottle | 98.4 | 97.0 | 97.0 | 97.0 |
-| cable | 97.2 | 92.3 | 92.3 | 92.3 |
-| capsule | 99.0 | 98.4 | 98.4 | 98.4 |
-| carpet | 97.5 | 98.9 | 98.9 | 98.9 |
-| grid | 93.7 | 98.3 | 98.3 | 98.3 |
-| hazelnut | 99.1 | 98.5 | 98.5 | 98.5 |
-| leather | 97.6 | 99.3 | 99.3 | 99.3 |
-| metal_nut | 98.1 | 97.1 | 97.1 | 97.1 |
-| pill | 96.5 | 95.0 | 95.0 | 95.0 |
-| screw | 98.9 | 99.1 | 99.1 | 99.1 |
-| tile | 87.4 | 92.8 | 92.8 | 92.8 |
-| toothbrush | 97.9 | 98.8 | 98.8 | 98.8 |
-| transistor | 94.1 | 86.6 | 86.6 | 86.6 |
-| wood | 88.5 | 95.3 | 95.3 | 95.3 |
-| zipper | 96.5 | 98.6 | 98.6 | 98.6 |
-| Average | 96.5 | 96.4 | 96.4 | 96.4 |
+| bottle | 98.4 | 97.0 | XX.X | XX.X |
+| cable | 97.2 | 92.7 | XX.X | XX.X |
+| capsule | 99.0 | 98.2 | XX.X | XX.X |
+| carpet | 97.5 | 98.9 | XX.X | XX.X |
+| grid | 93.7 | 96.8 | XX.X | XX.X |
+| hazelnut | 99.1 | 98.3 | XX.X | XX.X |
+| leather | 97.6 | 99.2 | XX.X | XX.X |
+| metal_nut | 98.1 | 96.8 | XX.X | XX.X |
+| pill | 96.5 | 94.3 | XX.X | XX.X |
+| screw | 98.9 | 99.0 | XX.X | XX.X |
+| tile | 87.4 | 92.4 | XX.X | XX.X |
+| toothbrush | 97.9 | 98.8 | XX.X | XX.X |
+| transistor | 94.1 | 87.4 | XX.X | XX.X |
+| wood | 88.5 | 94.8 | XX.X | XX.X |
+| zipper | 96.5 | 98.3 | XX.X | XX.X |
+| Average | 96.0 | 96.2 | XX.X | XX.X |
 
 <br/>
 
@@ -122,22 +122,26 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 | | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
 | - | - | - | - | - |
-| bottle | - | 97.2 | 97.2 | 97.2 |
-| cable | - | 84.8 | 84.8 | 84.8 |
-| capsule | - | 89.7 | 89.7 | 89.7 |
-| carpet | - | 92.8 | 92.8 | 92.8 |
-| grid | - | 47.3 | 47.3 | 47.3 |
-| hazelnut | - | 88.1 | 88.1 | 88.1 |
-| leather | - | 95.4 | 95.4 | 95.4 |
-| metal_nut | - | 71.0 | 71.0 | 71.0 |
-| pill | - | 80.1 | 80.1 | 80.1 |
-| screw | - | 66.7 | 66.7 | 66.7 |
-| tile | - | 96.5 | 96.5 | 96.5 |
-| toothbrush | - | 88.9 | 88.9 | 88.9 |
-| transistor | - | 90.3 | 90.3 | 90.3 |
-| wood | - | 95.8 | 95.8 | 95.8 |
-| zipper | - | 96.6 | 96.6 | 96.6 |
-| Average | 85.5 | 85.4 | 85.4 | 85.4 |
+| bottle | - | 3.5 | 4.0 | XX.X |
+| cable | - | 5.8 | 6.0 | XX.X |
+| capsule | - | 4.7 | 5.0 | XX.X |
+| carpet | - | 4.3 | XX.X | XX.X |
+| grid | - | 2.8 | XX.X | XX.X |
+| hazelnut | - | 4.0 | XX.X | XX.X |
+| leather | - | 4.4 | XX.X | XX.X |
+| metal_nut | - | 4.1 | XX.X | XX.X |
+| pill | - | 6.2 | XX.X | XX.X |
+| screw | - | 5.5 | XX.X | XX.X |
+| tile | - | 4.3 | XX.X | XX.X |
+| toothbrush | - | 1.7 | XX.X | XX.X |
+| transistor | - | 3.6 | XX.X | XX.X |
+| wood | - | 3.1 | XX.X | XX.X |
+| zipper | - | 5.5 | XX.X | XX.X |
+
+```
+CPU : Intel Xeon Platinum 8360Y
+GPU : NVIDIA A100 SXM4
+```
 
 <br/>
 
