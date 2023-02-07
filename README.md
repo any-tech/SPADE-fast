@@ -11,14 +11,24 @@ This code was implemented with reference to [SPADE-pytorch](https://github.com/b
 
 ## Prerequisites
 
-* faiss
-* torch, torchvision
-* sklearn, matplotlib
+- faiss-gpu (easy to install with conda : [ref](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md))
+- torch
+- torchvision
+- numpy
+- opencv-python
+- scipy
+- matplotlib
+- scikit-learn
+- torchinfo
+- tqdm
+
 
 Install prerequisites with:  
 ```
-pip install -r requirements.txt
+conda install --file requirements.txt
 ```
+
+<br/>
 
 If you already download [`MVTec AD`](https://www.mvtec.com/company/research/datasets/mvtec-ad/) dataset, move a file to `data/mvtec_anomaly_detection.tar.xz`.  
 If you don't have a dataset file, it will be automatically downloaded during the code running.
@@ -64,45 +74,72 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 ### 1. Image-level anomaly detection accuracy (ROCAUC %)
 
-| | Paper | Implementation |
-| - | - | - |
-| bottle | - | 97.2 |
-| cable | - | 84.8 |
-| capsule | - | 89.7 |
-| carpet | - | 92.8 |
-| grid | - | 47.3 |
-| hazelnut | - | 88.1 |
-| leather | - | 95.4 |
-| metal_nut | - | 71.0 |
-| pill | - | 80.1 |
-| screw | - | 66.7 |
-| tile | - | 96.5 |
-| toothbrush | - | 88.9 |
-| transistor | - | 90.3 |
-| wood | - | 95.8 |
-| zipper | - | 96.6 |
-| Average | 85.5 | 85.4 |
+| | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
+| - | - | - | - | - |
+| bottle | - | 97.2 | 97.2 | 97.2 |
+| cable | - | 84.8 | 84.8 | 84.8 |
+| capsule | - | 89.7 | 89.7 | 89.7 |
+| carpet | - | 92.8 | 92.8 | 92.8 |
+| grid | - | 47.3 | 47.3 | 47.3 |
+| hazelnut | - | 88.1 | 88.1 | 88.1 |
+| leather | - | 95.4 | 95.4 | 95.4 |
+| metal_nut | - | 71.0 | 71.0 | 71.0 |
+| pill | - | 80.1 | 80.1 | 80.1 |
+| screw | - | 66.7 | 66.7 | 66.7 |
+| tile | - | 96.5 | 96.5 | 96.5 |
+| toothbrush | - | 88.9 | 88.9 | 88.9 |
+| transistor | - | 90.3 | 90.3 | 90.3 |
+| wood | - | 95.8 | 95.8 | 95.8 |
+| zipper | - | 96.6 | 96.6 | 96.6 |
+| Average | 85.5 | 85.4 | 85.4 | 85.4 |
+
+<br/>
 
 ### 2. Pixel-level anomaly detection accuracy (ROCAUC %)
 
-| | Paper | Implementation |
-| - | - | - |
-| bottle | 98.4 | 97.0 |
-| cable | 97.2 | 92.3 |
-| capsule | 99.0 | 98.4 |
-| carpet | 97.5 | 98.9 |
-| grid | 93.7 | 98.3 |
-| hazelnut | 99.1 | 98.5 |
-| leather | 97.6 | 99.3 |
-| metal_nut | 98.1 | 97.1 |
-| pill | 96.5 | 95.0 |
-| screw | 98.9 | 99.1 |
-| tile | 87.4 | 92.8 |
-| toothbrush | 97.9 | 98.8 |
-| transistor | 94.1 | 86.6 |
-| wood | 88.5 | 95.3 |
-| zipper | 96.5 | 98.6 |
-| Average | 96.5 | 96.4 |
+| | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
+| - | - | - | - | - |
+| bottle | 98.4 | 97.0 | 97.0 | 97.0 |
+| cable | 97.2 | 92.3 | 92.3 | 92.3 |
+| capsule | 99.0 | 98.4 | 98.4 | 98.4 |
+| carpet | 97.5 | 98.9 | 98.9 | 98.9 |
+| grid | 93.7 | 98.3 | 98.3 | 98.3 |
+| hazelnut | 99.1 | 98.5 | 98.5 | 98.5 |
+| leather | 97.6 | 99.3 | 99.3 | 99.3 |
+| metal_nut | 98.1 | 97.1 | 97.1 | 97.1 |
+| pill | 96.5 | 95.0 | 95.0 | 95.0 |
+| screw | 98.9 | 99.1 | 99.1 | 99.1 |
+| tile | 87.4 | 92.8 | 92.8 | 92.8 |
+| toothbrush | 97.9 | 98.8 | 98.8 | 98.8 |
+| transistor | 94.1 | 86.6 | 86.6 | 86.6 |
+| wood | 88.5 | 95.3 | 95.3 | 95.3 |
+| zipper | 96.5 | 98.6 | 98.6 | 98.6 |
+| Average | 96.5 | 96.4 | 96.4 | 96.4 |
+
+<br/>
+
+### 3. Processing time (sec)
+
+| | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
+| - | - | - | - | - |
+| bottle | - | 97.2 | 97.2 | 97.2 |
+| cable | - | 84.8 | 84.8 | 84.8 |
+| capsule | - | 89.7 | 89.7 | 89.7 |
+| carpet | - | 92.8 | 92.8 | 92.8 |
+| grid | - | 47.3 | 47.3 | 47.3 |
+| hazelnut | - | 88.1 | 88.1 | 88.1 |
+| leather | - | 95.4 | 95.4 | 95.4 |
+| metal_nut | - | 71.0 | 71.0 | 71.0 |
+| pill | - | 80.1 | 80.1 | 80.1 |
+| screw | - | 66.7 | 66.7 | 66.7 |
+| tile | - | 96.5 | 96.5 | 96.5 |
+| toothbrush | - | 88.9 | 88.9 | 88.9 |
+| transistor | - | 90.3 | 90.3 | 90.3 |
+| wood | - | 95.8 | 95.8 | 95.8 |
+| zipper | - | 96.6 | 96.6 | 96.6 |
+| Average | 85.5 | 85.4 | 85.4 | 85.4 |
+
+<br/>
 
 ### ROC Curve 
 
