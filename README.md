@@ -74,7 +74,7 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 ### 1. Image-level anomaly detection accuracy (ROCAUC %)
 
-| | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
+| | Paper | This Repo<br/>k=3 | This Repo<br/>k=5 | This Repo<br/>k=50 |
 | - | - | - | - | - |
 | bottle | - | 96.5 | XX.X | XX.X |
 | cable | - | 84.7 | XX.X | XX.X |
@@ -97,7 +97,7 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 ### 2. Pixel-level anomaly detection accuracy (ROCAUC %)
 
-| | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
+| | Paper | This Repo<br/>k=3 | This Repo<br/>k=5 | This Repo<br/>k=50 |
 | - | - | - | - | - |
 | bottle | 98.4 | 97.0 | XX.X | XX.X |
 | cable | 97.2 | 92.7 | XX.X | XX.X |
@@ -120,7 +120,7 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 ### 3. Processing time (sec)
 
-| | Paper | Implementation<br/>(k=3) | Implementation<br/>(k=5) | Implementation<br/>(k=50) |
+| | Paper | This Repo<br/>k=3 | This Repo<br/>k=5 | This Repo<br/>k=50 |
 | - | - | - | - | - |
 | bottle | - | 3.5 | 4.0 | XX.X |
 | cable | - | 5.8 | 6.0 | XX.X |
