@@ -81,7 +81,6 @@ for type_data in types_data:
                    if (os.path.isfile(os.path.join(path_train, f)) &
                        ('.png' in f))]
     files_train = np.sort(np.array(files_train))
-    print('len(files_train) =', len(files_train))
 
     types_test = os.listdir(os.path.join(path_parent, type_data, 'test'))
     types_test = np.array(sorted(types_test))
@@ -95,10 +94,7 @@ for type_data in types_data:
                                  if (os.path.isfile(os.path.join(path_test, f)) &
                                      ('.png' in f))]
         files_test[type_test] = np.sort(np.array(files_test[type_test]))
-        print('len(files_test[%s]) =' % type_test, len(files_test[type_test]))
-    toc(tag='get filename')
 
-    tic()
     # create output variable
     # https://zenn.dev/ymd_h/articles/4f965f3bfd510d
     # 載せたい型とサイズの指定
@@ -120,17 +116,10 @@ for type_data in types_data:
     p = mp.Pool(min(mp.cpu_count(), NUM_CPU_MAX))
 
     for _ in tqdm(p.imap_unordered(read_and_resize, files_train),
-                  total=len(files_train)):
+                  total=len(files_train), desc='read image for train'):
         pass
     p.close()
-    toc(tag='read images for train')
 
-    # plt.figure(figsize=(8, 8), dpi=100)
-    # plt.imshow(imgs_train[0])
-    # plt.show()
-    # assert False
-
-    tic()
     imgs_test = {}
     for type_test in types_test:
         # create output variable    
@@ -152,18 +141,11 @@ for type_data in types_data:
         p = mp.Pool(min(mp.cpu_count(), NUM_CPU_MAX))
 
         for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
-                      total=len(files_test[type_test])):
+                      total=len(files_test[type_test]),
+                      desc='read image for test (case:%s)' % type_test):
             pass
         p.close()
-    toc(tag='read images for test')
 
-    # for type_test in types_test:
-    #     plt.figure(figsize=(8, 8), dpi=100)
-    #     plt.imshow(imgs_test[type_test][0])
-    #     plt.show()
-    # assert False
-
-    tic()
     gts_test = {}
     for type_test in types_test:
         # create output variable    
@@ -192,21 +174,15 @@ for type_data in types_data:
             p = mp.Pool(min(mp.cpu_count(), NUM_CPU_MAX))
 
             for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
-                          total=len(files_test[type_test])):
+                          total=len(files_test[type_test]),
+                          desc='read ground-truth for test (case:%s)' % type_test):
                 pass
             p.close()
-    toc(tag='read groundtrues for test')
-
-    # for type_test in types_test:
-    #     plt.figure(figsize=(8, 8), dpi=100)
-    #     plt.imshow(gts_test[type_test][0])
-    #     plt.show()
-    # assert False
 
     tic()
     x_batch = []
     outputs = []
-    for i, img in tqdm(enumerate(imgs_train)):
+    for i, img in tqdm(enumerate(imgs_train), desc='feature extract for train'):
 
         x = torch.from_numpy(img.astype(np.float32)).to(device)
         x = x / 255
@@ -225,7 +201,6 @@ for type_data in types_data:
     f2_train = np.vstack(outputs[1::4])
     f3_train = np.vstack(outputs[2::4])
     fl_train = np.vstack(outputs[3::4]).squeeze(-1).squeeze(-1)
-    toc('feedforward train')
 
     tic()
     f1_test = {}
@@ -236,7 +211,8 @@ for type_data in types_data:
 
         x_batch = []
         outputs = []
-        for i, img in tqdm(enumerate(imgs_test[type_test])):
+        for i, img in tqdm(enumerate(imgs_test[type_test]),
+                           desc='feature extract for test (case:%s)' % type_test):
 
             x = torch.from_numpy(img.astype(np.float32)).to(device)
             x = x / 255
@@ -255,17 +231,13 @@ for type_data in types_data:
         f2_test[type_test] = np.vstack(outputs[1::4])
         f3_test[type_test] = np.vstack(outputs[2::4])
         fl_test[type_test] = np.vstack(outputs[3::4]).squeeze(-1).squeeze(-1)
-    toc('feedforward test')
 
-    tic()
     d = fl_train.shape[1]
     index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), 
                                  d, 
                                  faiss.GpuIndexFlatConfig())
     index.add(fl_train)
-    toc('make index')
 
-    tic()
     I_test = {}
     D_test = {}
 
@@ -273,14 +245,11 @@ for type_data in types_data:
     D, I = index.search(fl_test[type_test], k)
     D_test[type_test] = np.mean(D, axis=1)
     I_test[type_test] = I
-
     for type_test in types_test[types_test != 'good']:
         D, I = index.search(fl_test[type_test], k)
         D_test[type_test] = np.mean(D, axis=1)
         I_test[type_test] = I
-    toc('exec knn')
 
-    tic()
     D_list = []
     y_list = []
     type_test = 'good'
@@ -296,7 +265,6 @@ for type_data in types_data:
     fpr, tpr, _ = roc_curve(y_list, D_list)
     per_image_rocauc = roc_auc_score(y_list, D_list)
     auc_image.append(per_image_rocauc)
-    toc('anomaly detection')
 
     plt.figure(figsize=(10, 8), dpi=100, facecolor='white')
     N_test = 0
@@ -330,6 +298,8 @@ for type_data in types_data:
     plt.legend()
     plt.show()
 
+    print('%s ROCAUC: %.3f' % (type_data, per_image_rocauc))
+
     flatten_gt_mask_list = []
     flatten_score_map_list = []
 
@@ -344,10 +314,10 @@ for type_data in types_data:
                                   f3_train.shape[1], 
                                   faiss.GpuIndexFlatConfig())
 
-    tic()
     for type_test in types_test:
 
-        for i, img in tqdm(enumerate(imgs_test[type_test])):
+        for i, img in tqdm(enumerate(imgs_test[type_test]),
+                           desc='localization (case:%s)' % type_test):
 
             gt = gts_test[type_test][i]
 
@@ -404,13 +374,15 @@ for type_data in types_data:
     fpr, tpr, _ = roc_curve(flatten_gt_mask_list, flatten_score_map_list)
     per_pixel_rocauc = roc_auc_score(flatten_gt_mask_list, flatten_score_map_list)
     auc_pixel.append(per_pixel_rocauc)
-    toc('localization')
+    toc('elapsed time for SPADE processing in %s' % type_data)
 
     plt.figure(figsize=(10, 6), dpi=100)
     plt.plot(fpr, tpr, label='%s ROCAUC: %.3f' % (type_data, per_pixel_rocauc))
     plt.grid()
     plt.legend()
     plt.show()
+
+    print('%s ROCAUC: %.3f' % (type_data, per_pixel_rocauc))
 
 auc_image = np.array(auc_image)
 auc_pixel = np.array(auc_pixel)
