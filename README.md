@@ -17,6 +17,7 @@ This code was implemented with reference to [SPADE-pytorch](https://github.com/b
 - numpy
 - opencv-python
 - scipy
+- argparse
 - matplotlib
 - scikit-learn
 - torchinfo
@@ -76,7 +77,7 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 | | Paper | This Repo<br/>k=3 | This Repo<br/>k=5 | This Repo<br/>k=50 |
 | - | - | - | - | - |
-| bottle | - | 96.5 | 96.6 | ９５．７ |
+| bottle | - | 96.5 | 96.6 | 95.7 |
 | cable | - | 84.7 | 84.7 | 80.9 |
 | capsule | - | 90.5 | 89.7 | 81.8 |
 | carpet | - | 92.4 | 92.5 | 91.8 |
@@ -122,22 +123,22 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 | | Paper | This Repo<br/>k=3 | This Repo<br/>k=5 | This Repo<br/>k=50 |
 | - | - | - | - | - |
-| bottle | - | 3.5 | 3.6 | 13.2 |
-| cable | - | 5.8 | 6.0 | 21.9 |
-| capsule | - | 4.7 | 5.0 | 19.7 |
-| carpet | - | 4.3 | 4.6 | 17.5 |
-| grid | - | 2.8 | 3.1 | 12.3 |
-| hazelnut | - | 4.0 | 4.3 | 15.5 |
-| leather | - | 4.4 | 5.0 | 18.8 |
-| metal_nut | - | 4.1 | 4.5 | 18.5 |
-| pill | - | 6.2 | 6.6 | 25.3 |
-| screw | - | 5.5 | 6.2 | 23.1 |
-| tile | - | 4.3 | 4.9 | 16.3 |
-| toothbrush | - | 1.7 | 1.8 | 6.5 |
-| transistor | - | 3.6 | 4.1 | 13.2 |
-| wood | - | 3.1 | 3.5 | 12.0 |
-| zipper | - | 5.5 | 6.1 | 21.8 |
-| Average | - | 4.2 | 4.6 | 17.0 |
+| bottle | - | 6.6 | 7.2 | 16.4 |
+| cable | - | 13.2 | 13.2 | 30.1 |
+| capsule | - | 11.6 | 11.9 | 25.3 |
+| carpet | - | 12.0 | 11.6 | 26.2 |
+| grid | - | 7.4 | 7.5 | 17.7 |
+| hazelnut | - | 12.4 | 12.3 | 26.4 |
+| leather | - | 10.9 | 10.8 | 26.8 |
+| metal_nut | - | 8.3 | 8.6 | 23.1 |
+| pill | - | 13.2 | 12.7 | 34.1 |
+| screw | - | 11.7 | 11.7 | 28.4 |
+| tile | - | 10.3 | 9.9 | 22.2 |
+| toothbrush | - | 3.7 | 3.6 | 7.9 |
+| transistor | - | 9.6 | 9.7 | 17.7 |
+| wood | - | 9.9 | 9.4 | 17.8 |
+| zipper | - | 11.4 | 11.4 | 26.6 |
+| Average | - | X.X | X.X | X.X |
 
 ```
 CPU : Intel Xeon Platinum 8360Y
@@ -148,10 +149,24 @@ GPU : NVIDIA A100 SXM4
 
 ### ROC Curve 
 
-![roc](./assets/roc_curve.png)
+- k = 3
+![roc](./assets/roc_curve_k03.png)
+
+<br/>
+
+- k = 5
+![roc](./assets/roc_curve_k05.png)
+
+<br/>
+
+- k = 50
+![roc](./assets/roc_curve_k50.png)
+
+<br/>
 
 ### Localization results  
 
+- k = 50
 ![bottle](./assets/bottle_000.png)  
 ![cable](./assets/cable_000.png)  
 ![capsule](./assets/capsule_000.png)  
