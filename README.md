@@ -31,10 +31,9 @@ conda install --file requirements.txt
 
 <br/>
 
-If you already download [`MVTec AD`](https://www.mvtec.com/company/research/datasets/mvtec-ad/) dataset, move a file to `data/mvtec_anomaly_detection.tar.xz`.  
-If you don't have a dataset file, it will be automatically downloaded during the code running.
+Please download [`MVTec AD`](https://www.mvtec.com/company/research/datasets/mvtec-ad/) dataset.
 
-When you are ready, it will look like this:
+After downloading, place the data as follows:
 ```
 ./
 ├── main.py
@@ -150,35 +149,113 @@ GPU : NVIDIA A100 SXM4
 ### ROC Curve 
 
 - k = 3
-![roc](./assets/roc_curve_k03.png)
+![roc](./assets/roc-curve_k03.png)
 
 <br/>
 
 - k = 5
-![roc](./assets/roc_curve_k05.png)
+![roc](./assets/roc-curve_k05.png)
 
 <br/>
 
 - k = 50
-![roc](./assets/roc_curve_k50.png)
+![roc](./assets/roc-curve_k50.png)
 
 <br/>
 
-### Localization results  
+### Prediction Distribution (k = 5)
 
-- k = 50
-![bottle](./assets/bottle_000.png)  
-![cable](./assets/cable_000.png)  
-![capsule](./assets/capsule_000.png)  
-![carpet](./assets/carpet_000.png)  
-![grid](./assets/grid_000.png)  
-![hazelnut](./assets/hazelnut_000.png)  
-![leather](./assets/leather_000.png)  
-![metal_nut](./assets/metal_nut_000.png)  
-![pill](./assets/pill_000.png)  
-![screw](./assets/screw_000.png)  
-![tile](./assets/tile_000.png)  
-![toothbrush](./assets/toothbrush_000.png)  
-![transistor](./assets/transistor_000.png)  
-![wood](./assets/wood_000.png)  
-![zipper](./assets/zipper_000.png)  
+- bottle
+![bottle](./assets/pred-dist_k05_bottle.png)
+
+- cable
+![cable](./assets/pred-dist_k05_cable.png)
+
+- capsule
+![capsule](./assets/pred-dist_k05_capsule.png)
+
+- carpet
+![carpet](./assets/pred-dist_k05_carpet.png)
+
+- grid
+![grid](./assets/pred-dist_k05_grid.png)
+
+- hazelnut
+![hazelnut](./assets/pred-dist_k05_hazelnut.png)
+
+- leather
+![leather](./assets/pred-dist_k05_leather.png)
+
+- metal_nut
+![metal_nut](./assets/pred-dist_k05_metal_nut.png)
+
+- pill
+![pill](./assets/pred-dist_k05_pill.png)
+
+- screw
+![screw](./assets/pred-dist_k05_screw.png)
+
+- tile
+![tile](./assets/pred-dist_k05_tile.png)
+
+- toothbrush
+![toothbrush](./assets/pred-dist_k05_toothbrush.png)
+
+- transistor
+![transistor](./assets/pred-dist_k05_transistor.png)
+
+- wood
+![wood](./assets/pred-dist_k05_wood.png)
+
+- zipper
+![zipper](./assets/pred-dist_k05_zipper.png)
+
+<br/>
+
+### Localization (k = 50)
+
+- bottle (test case : broken_large)
+![bottle](./assets/localization_k50_bottle_broken_large_000.png)
+
+- cable (test case : bent_wire)
+![cable](./assets/localization_k50_cable_bent_wire_000.png)
+
+- capsule (test case : crack)
+![capsule](./assets/localization_k50_capsule_crack_000.png)
+
+- carpet (test case : color)
+![carpet](./assets/localization_k50_carpet_color_000.png)
+
+- grid (test case : bent)
+![grid](./assets/localization_k50_grid_bent_000.png)
+
+- hazelnut (test case : crack)
+![hazelnut](./assets/localization_k50_hazelnut_crack_000.png)
+
+- leather (test case : color)
+![leather](./assets/localization_k50_leather_color_000.png)
+
+- metal_nut (test case : bent)
+![metal_nut](./assets/localization_k50_metal_nut_bent_000.png)
+
+- pill (test case : color)
+![pill](./assets/localization_k50_pill_color_000.png)
+
+- screw (test case : manipulated_front)
+![screw](./assets/localization_k50_screw_manipulated_front_000.png)
+
+- tile (test case : crack)
+![tile](./assets/localization_k50_tile_crack_000.png)
+
+- toothbrush (test case : defective)
+![toothbrush](./assets/localization_k50_toothbrush_defective_000.png)
+
+- transistor (test case : bent_lead)
+![transistor](./assets/localization_k50_transistor_bent_lead_000.png)
+
+- wood (test case : color)
+![wood](./assets/localization_k50_wood_color_000.png)
+
+- zipper (test case : broken_teeth)
+![zipper](./assets/localization_k50_zipper_broken_teeth_000.png)
+
