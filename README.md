@@ -138,7 +138,7 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 | transistor | - | 9.6 | 9.7 | 17.7 |
 | wood | - | 9.9 | 9.4 | 17.8 |
 | zipper | - | 11.4 | 11.4 | 26.6 |
-| Average | - | X.X | X.X | X.X |
+| Average | - | 10.1 | 10.1 | 23.1 |
 
 ```
 CPU : Intel Xeon Platinum 8360Y
