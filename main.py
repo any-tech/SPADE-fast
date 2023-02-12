@@ -1,5 +1,6 @@
 import os
-import argparse
+# import argparse
+from argparse import ArgumentParser
 import numpy as np
 import cv2
 
@@ -18,6 +19,9 @@ from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import time
+from models.spade import Spade
+from config import Config
+from datasets.mvtec_dataset import MVTecDataset
 
 
 def tic():
@@ -47,200 +51,187 @@ def overlay_heatmap_on_image(img, heatmap, ratio_img=0.5):
     return overlay
 
 
-def parse_args():
-    parser = argparse.ArgumentParser('SPADE')
+def arg_parser():
+    parser = ArgumentParser()
     parser.add_argument('-k', '--k', type=int, default=5, help='nearest neighbor\'s k')
-    parser.add_argument('-b', '--batch_size', type=int, default=256,
-                        help='batch-size for feature extraction from ImageNet model')
-    parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection',
-                        help='parent path of data input path')
-    parser.add_argument('-pr', '--path_result', type=str, default='./result',
-                        help='output path of figure image as the evaluation result')
+    parser.add_argument('-b', '--batch_size', type=int, default=4, help='batch-size for feature extraction from ImageNet model')
+    parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection', help='parent path of data input path')
+    parser.add_argument('-pr', '--path_result', type=str, default='./result', help='output path of figure image as the evaluation result')
     parser.add_argument('-c', '--cpu', action='store_true', help='use cpu')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='save visualization of localization')
-    return parser.parse_args()
+    parser.add_argument('-v', '--verbose', action='store_true', help='save visualization of localization')
+
+    parser.add_argument('--load_size', default=256, type=int, help='画像を読み込むサイズ')
+    parser.add_argument('--input_size', default=224, type=int, help='画像をトリミングするサイズ')
+    parser.add_argument('--num_cpu_max', default=1, type=int, help='')
+    parser.add_argument('--num_workers', default=0, type=int, help='')
+
+    args = parser.parse_args()
+    return args
 
 
-args = parse_args()
-print('args =\n', args)
+# args = arg_parser()
+# config = Config(args)
 
-if args.cpu:
-    device = torch.device('cpu')
-else:
-    device = torch.device('cuda:0')  # default
 
-NUM_CPU_MAX = 4  # for exec imread and imresize on multiprocess
+def read_and_resize_for_train(file):
+    img = cv2.imread(file)[..., ::-1]  # BGR2RGB
 
-# https://pytorch.org/vision/main/models/generated/torchvision.models.wide_resnet50_2.html#torchvision.models.Wide_ResNet50_2_Weights
-MEAN = torch.FloatTensor([[[0.485, 0.456, 0.406]]]).to(device)
-STD = torch.FloatTensor([[[0.229, 0.224, 0.225]]]).to(device)
-SHAPE_MIDDLE = (256, 256)  # (H, W)
-SHAPE_INPUT = (224, 224)  # (H, W)
+    # from the paper
+    img = cv2.resize(img, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
+    img = img[
+          config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
+          config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
+    ]
 
-pixel_crop = (int(abs(SHAPE_MIDDLE[0] - SHAPE_INPUT[0]) / 2),
-              int(abs(SHAPE_MIDDLE[1] - SHAPE_INPUT[1]) / 2))  # (H, W)
+    # imgs_train[np.where(files_train == file)[0]] = img
 
-model = models.wide_resnet50_2(weights=models.Wide_ResNet50_2_Weights.IMAGENET1K_V1)
-model.eval()
-model.to(device)
-print('model =\n')
-summary(model, input_size=(1, 3, SHAPE_INPUT[0], SHAPE_INPUT[1]))
+    return img
 
-# https://github.com/xiahaifeng1995/PaDiM-Anomaly-Detection-Localization-master/blob/main/main.py
-# set model's intermediate outputs
-outputs = []
-def hook(module, input, output):
-    outputs.append(output.cpu().numpy())
-model.layer1[-1].register_forward_hook(hook)
-model.layer2[-1].register_forward_hook(hook)
-model.layer3[-1].register_forward_hook(hook)
-model.avgpool.register_forward_hook(hook)
 
-# collect types of data
-types_data = [d for d in os.listdir(args.path_parent)
-              if os.path.isdir(os.path.join(args.path_parent, d))]
-types_data = np.sort(np.array(types_data))
-print('types_data =', types_data)
-
-os.makedirs(args.path_result, exist_ok=True)
-for type_data in types_data:
-    os.makedirs(os.path.join(args.path_result, type_data), exist_ok=True)
-
-fpr_image = {}
-tpr_image = {}
-rocauc_image = {}
-fpr_pixel = {}
-tpr_pixel = {}
-rocauc_pixel = {}
-
-# loop for types of data
-for type_data in types_data:
-
+def exec_one_type_data(args, config, type_data, model):
     tic()
 
+    train_dataset = MVTecDataset(args, config, type_data, is_train=True)
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True,
+    )
+
     # collect filename of train
-    path_train = os.path.join(args.path_parent, type_data, 'train/good')
-    files_train = [os.path.join(path_train, f) for f in os.listdir(path_train)
-                   if (os.path.isfile(os.path.join(path_train, f)) &
-                       ('.png' in f))]  # only .png files exist in mvtec
-    files_train = np.sort(np.array(files_train))
+    # path_train = os.path.join(args.path_parent, type_data, 'train/good')
+    # files_train = [os.path.join(path_train, f) for f in os.listdir(path_train)
+    #                if (os.path.isfile(os.path.join(path_train, f)) & ('.png' in f))]
+    # files_train = np.sort(np.array(files_train))
+    #
+    # train_dataset = MVTecDataset(args, config, type_data, is_train=True)
+    #
+    # # collect test-type of test
+    # types_test = os.listdir(os.path.join(args.path_parent, type_data, 'test'))
+    # types_test = np.array(sorted(types_test))
+    #
+    # # collect filename of test
+    # files_test = {}
+    # for type_test in types_test:
+    #     path_test = os.path.join(args.path_parent, type_data, 'test', type_test)
+    #     files_test[type_test] = [os.path.join(path_test, f)
+    #                              for f in os.listdir(path_test)
+    #                              if (os.path.isfile(os.path.join(path_test, f)) & ('.png' in f))]
+    #     files_test[type_test] = np.sort(np.array(files_test[type_test]))
+    #
+    # # create memory shared variable
+    # # https://zenn.dev/ymd_h/articles/4f965f3bfd510d
+    # shape = (len(files_train), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1], 3)
+    # num_elm = shape[0] * shape[1] * shape[2] * shape[3]
+    # ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
+    # data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
+    # data.shape = shape
+    # imgs_train = data.view(np.uint8)
+    #
+    # # define function for parallel
+    # def read_and_resize(file):
+    #     img = cv2.imread(file)[..., ::-1]  # BGR2RGB
+    #
+    #     # from the paper
+    #     img = cv2.resize(img, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
+    #     img = img[
+    #           config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
+    #           config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
+    #     ]
+    #     imgs_train[np.where(files_train == file)[0]] = img
+    #
+    # # exec imread and imresize on multiprocess
+    # mp.set_start_method('fork', force=True)
+    # p = mp.Pool(min(mp.cpu_count(), args.num_cpu_max))
+    #
+    # pool_unordered = p.imap_unordered(read_and_resize_for_train, files_train)
+    # # pool_unordered = p.imap_unordered(read_and_resize, files_train)
+    # for img in tqdm(pool_unordered, total=len(files_train), desc='read image for train'):
+    #     imgs_train[np.where(files_train == file)[0]] = img
+    # p.close()
 
-    # collect test-type of test
-    types_test = os.listdir(os.path.join(args.path_parent, type_data, 'test'))
-    types_test = np.array(sorted(types_test))
-
-    # collect filename of test
-    files_test = {}
-    for type_test in types_test:
-        path_test = os.path.join(args.path_parent, type_data, 'test', type_test)
-        files_test[type_test] = [os.path.join(path_test, f)
-                                 for f in os.listdir(path_test)
-                                 if (os.path.isfile(os.path.join(path_test, f)) &
-                                     ('.png' in f))]  # only .png files exist in mvtec
-        files_test[type_test] = np.sort(np.array(files_test[type_test]))
-
-    # create memory shared variable
-    # https://zenn.dev/ymd_h/articles/4f965f3bfd510d
-    shape = (len(files_train), SHAPE_INPUT[0], SHAPE_INPUT[1], 3)
-    num_elm = shape[0] * shape[1] * shape[2] * shape[3]
-    ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-    data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-    data.shape = shape
-    imgs_train = data.view(np.uint8)
-
-    # define function for parallel
-    def read_and_resize(file):
-        img = cv2.imread(file)[..., ::-1]  # BGR2RGB
-        img = cv2.resize(img, (SHAPE_MIDDLE[1], SHAPE_MIDDLE[0]),
-                         interpolation=cv2.INTER_AREA)  # from the paper
-        img = img[pixel_crop[0]:(SHAPE_INPUT[0] + pixel_crop[0]),
-                  pixel_crop[1]:(SHAPE_INPUT[1] + pixel_crop[1])]
-        imgs_train[np.where(files_train == file)[0]] = img
-
-    # exec imread and imresize on multiprocess
-    mp.set_start_method('fork', force=True)
-    p = mp.Pool(min(mp.cpu_count(), NUM_CPU_MAX))
-
-    for _ in tqdm(p.imap_unordered(read_and_resize, files_train),
-                  total=len(files_train), desc='read image for train'):
-        pass
-    p.close()
-
-    imgs_test = {}
-    for type_test in types_test:
-        # create memory shared variable
-        shape = (len(files_test[type_test]), SHAPE_INPUT[0], SHAPE_INPUT[1], 3)
-        num_elm = shape[0] * shape[1] * shape[2] * shape[3]
-        ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-        data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-        data.shape = shape
-        imgs_test[type_test] = data.view(np.uint8)
-
-        # define function for parallel
-        def read_and_resize(file):
-            img = cv2.imread(file)[..., ::-1]  # BGR2RGB
-            img = cv2.resize(img, (SHAPE_MIDDLE[1], SHAPE_MIDDLE[0]),
-                             interpolation=cv2.INTER_AREA)  # from the paper
-            img = img[pixel_crop[0]:(SHAPE_INPUT[0] + pixel_crop[0]),
-                      pixel_crop[1]:(SHAPE_INPUT[1] + pixel_crop[1])]
-            imgs_test[type_test][np.where(files_test[type_test] == file)[0]] = img
-
-        # exec imread and imresize on multiprocess
-        mp.set_start_method('fork', force=True)
-        p = mp.Pool(min(mp.cpu_count(), NUM_CPU_MAX))
-
-        for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
-                      total=len(files_test[type_test]),
-                      desc='read image for test (case:%s)' % type_test):
-            pass
-        p.close()
-
-    gts_test = {}
-    for type_test in types_test:
-        # create memory shared variable
-        shape = (len(files_test[type_test]), SHAPE_INPUT[0], SHAPE_INPUT[1])
-        if (type_test == 'good'):
-            gts_test[type_test] = np.zeros(shape, dtype=np.uint8)
-        else:
-            num_elm = shape[0] * shape[1] * shape[2]
-            ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-            data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-            data.shape = shape
-            gts_test[type_test] = data.view(np.uint8)
-
-            # define function for parallel
-            def read_and_resize(file):
-                file_gt = file.replace('/test/', '/ground_truth/')
-                file_gt = file_gt.replace('.png', '_mask.png')
-                gt = cv2.imread(file_gt, cv2.IMREAD_GRAYSCALE)
-                gt = cv2.resize(gt, (SHAPE_MIDDLE[1], SHAPE_MIDDLE[0]),
-                                interpolation=cv2.INTER_NEAREST)
-                gt = gt[pixel_crop[0]:(SHAPE_INPUT[0] + pixel_crop[0]),
-                        pixel_crop[1]:(SHAPE_INPUT[1] + pixel_crop[1])]
-                if (np.max(gt) != 0):
-                    gt = (gt / np.max(gt)).astype(np.uint8)
-                gts_test[type_test][np.where(files_test[type_test] == file)[0]] = gt
-
-            # exec imread and imresize on multiprocess
-            mp.set_start_method('fork', force=True)
-            p = mp.Pool(min(mp.cpu_count(), NUM_CPU_MAX))
-
-            for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
-                          total=len(files_test[type_test]),
-                          desc='read ground-truth for test (case:%s)' % type_test):
-                pass
-            p.close()
+    # imgs_test = {}
+    # for type_test in types_test:
+    #     # create memory shared variable
+    #     shape = (len(files_test[type_test]), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1], 3)
+    #     num_elm = shape[0] * shape[1] * shape[2] * shape[3]
+    #     ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
+    #     data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
+    #     data.shape = shape
+    #     imgs_test[type_test] = data.view(np.uint8)
+    #
+    #     # define function for parallel
+    #     def read_and_resize(file):
+    #         img = cv2.imread(file)[..., ::-1]  # BGR2RGB
+    #
+    #         # from the paper
+    #         img = cv2.resize(img, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
+    #         img = img[
+    #               config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
+    #               config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
+    #         ]
+    #         imgs_test[type_test][np.where(files_test[type_test] == file)[0]] = img
+    #
+    #     # exec imread and imresize on multiprocess
+    #     mp.set_start_method('fork', force=True)
+    #     p = mp.Pool(min(mp.cpu_count(), config.num_cpu_max))
+    #
+    #     for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
+    #                   total=len(files_test[type_test]),
+    #                   desc='read image for test (case:%s)' % type_test):
+    #         pass
+    #     p.close()
+    #
+    # gts_test = {}
+    # for type_test in types_test:
+    #     # create memory shared variable
+    #     shape = (len(files_test[type_test]), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1])
+    #     if (type_test == 'good'):
+    #         gts_test[type_test] = np.zeros(shape, dtype=np.uint8)
+    #     else:
+    #         num_elm = shape[0] * shape[1] * shape[2]
+    #         ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
+    #         data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
+    #         data.shape = shape
+    #         gts_test[type_test] = data.view(np.uint8)
+    #
+    #         # define function for parallel
+    #         def read_and_resize(file):
+    #             file_gt = file.replace('/test/', '/ground_truth/')
+    #             file_gt = file_gt.replace('.png', '_mask.png')
+    #             gt = cv2.imread(file_gt, cv2.IMREAD_GRAYSCALE)
+    #             gt = cv2.resize(gt, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_NEAREST)
+    #             gt = gt[
+    #                  config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
+    #                  config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
+    #             ]
+    #             if np.max(gt) != 0:
+    #                 gt = (gt / np.max(gt)).astype(np.uint8)
+    #             gts_test[type_test][np.where(files_test[type_test] == file)[0]] = gt
+    #
+    #         # exec imread and imresize on multiprocess
+    #         mp.set_start_method('fork', force=True)
+    #         p = mp.Pool(min(mp.cpu_count(), args.num_cpu_max))
+    #
+    #         for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
+    #                       total=len(files_test[type_test]),
+    #                       desc='read ground-truth for test (case:%s)' % type_test):
+    #             pass
+    #         p.close()
 
     # feature extract for train
     x_batch = []
     outputs = []
-    for i, img in tqdm(enumerate(imgs_train), desc='feature extract for train'):
 
-        x = torch.from_numpy(img.astype(np.float32)).to(device)
+    for i, img in tqdm(enumerate(train_dataloader), desc='feature extract for train'):
+    # for i, img in tqdm(enumerate(imgs_train), desc='feature extract for train'):
+
+        x = torch.from_numpy(img.astype(np.float32)).to(config.device)
         x = x / 255
-        x = x - MEAN
-        x = x / STD
+        x = x - config.MEAN
+        x = x / config.STD
         x = x.unsqueeze(0).permute(0, 3, 1, 2)
 
         x_batch.append(x)
@@ -264,13 +255,12 @@ for type_data in types_data:
 
         x_batch = []
         outputs = []
-        for i, img in tqdm(enumerate(imgs_test[type_test]),
-                           desc='feature extract for test (case:%s)' % type_test):
+        for i, img in tqdm(enumerate(imgs_test[type_test]), desc='feature extract for test (case:%s)' % type_test):
 
             x = torch.from_numpy(img.astype(np.float32)).to(device)
             x = x / 255
-            x = x - MEAN
-            x = x / STD
+            x = x - config.MEAN
+            x = x / config.STD
             x = x.unsqueeze(0).permute(0, 3, 1, 2)
 
             x_batch.append(x)
@@ -287,8 +277,8 @@ for type_data in types_data:
 
     # exec knn by final layer feature vector
     d = fl_train.shape[1]
-    index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), 
-                                 d, 
+    index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
+                                 d,
                                  faiss.GpuIndexFlatConfig())
     index.add(fl_train)
 
@@ -308,11 +298,9 @@ for type_data in types_data:
         I_test[type_test] = I
 
     D_list = np.concatenate([D_test['good'],
-                             np.hstack([D_test[type_test] for type_test
-                                        in types_test[types_test != 'good']])])
+                             np.hstack([D_test[type_test] for type_test in types_test[types_test != 'good']])])
     y_list = np.concatenate([y_test['good'],
-                             np.hstack([y_test[type_test] for type_test
-                                        in types_test[types_test != 'good']])])
+                             np.hstack([y_test[type_test] for type_test in types_test[types_test != 'good']])])
 
     # calculate per-image level ROCAUC
     fpr, tpr, _ = roc_curve(y_list, D_list)
@@ -331,34 +319,33 @@ for type_data in types_data:
     score_max = -9999
 
     # k nearest features from the gallery (k=1)
-    index1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), 
-                                  f1_train.shape[1], 
+    index1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
+                                  f1_train.shape[1],
                                   faiss.GpuIndexFlatConfig())
-    index2 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), 
-                                  f2_train.shape[1], 
+    index2 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
+                                  f2_train.shape[1],
                                   faiss.GpuIndexFlatConfig())
-    index3 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), 
-                                  f3_train.shape[1], 
+    index3 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
+                                  f3_train.shape[1],
                                   faiss.GpuIndexFlatConfig())
 
-    for type_test in types_test:        
+    for type_test in types_test:
         score_maps_test[type_test] = []
 
-        for i, gt in tqdm(enumerate(gts_test[type_test]),
-                           desc='localization (case:%s)' % type_test):
+        for i, gt in tqdm(enumerate(gts_test[type_test]), desc='localization (case:%s)' % type_test):
             score_map_mean = []
 
             for i_nn in range(3):
                 # construct a gallery of features at all pixel locations of the K nearest neighbors
-                if (i_nn == 0):
+                if i_nn == 0:
                     f_neighbor = f1_train[I_test[type_test][i]]
                     f_query = f1_test[type_test][[i]]
                     index_ = index1
-                elif (i_nn == 1):
+                elif i_nn == 1:
                     f_neighbor = f2_train[I_test[type_test][i]]
                     f_query = f2_test[type_test][[i]]
                     index_ = index2
-                elif (i_nn == 2):
+                elif i_nn == 2:
                     f_neighbor = f3_train[I_test[type_test][i]]
                     f_query = f3_test[type_test][[i]]
                     index_ = index3
@@ -379,7 +366,7 @@ for type_data in types_data:
 
                 # transform to scoremap
                 score_map = D.reshape(H, W)
-                score_map = cv2.resize(score_map, (SHAPE_INPUT[0], SHAPE_INPUT[1]))
+                score_map = cv2.resize(score_map, (config.SHAPE_INPUT[0], config.SHAPE_INPUT[1]))
                 score_map_mean.append(score_map)
 
             # average distance between the features
@@ -414,14 +401,14 @@ for type_data in types_data:
     N_test = 0
     type_test = 'good'
     plt.subplot(2, 1, 1)
-    plt.scatter((np.arange(len(D_test[type_test])) + N_test), 
+    plt.scatter((np.arange(len(D_test[type_test])) + N_test),
                 D_test[type_test], alpha=0.5, label=type_test)
     plt.subplot(2, 1, 2)
     plt.hist(D_test[type_test], alpha=0.5, label=type_test, bins=10)
     N_test += len(D_test[type_test])
     for type_test in types_test[types_test != 'good']:
         plt.subplot(2, 1, 1)
-        plt.scatter((np.arange(len(D_test[type_test])) + N_test), 
+        plt.scatter((np.arange(len(D_test[type_test])) + N_test),
                     D_test[type_test], alpha=0.5, label=type_test)
         plt.subplot(2, 1, 2)
         plt.hist(D_test[type_test], alpha=0.5, label=type_test, bins=10)
@@ -434,16 +421,15 @@ for type_data in types_data:
     plt.grid()
     plt.legend()
     plt.gcf().tight_layout()
-    plt.gcf().savefig(os.path.join(args.path_result, type_data,
-                                   ('pred-dist_k%02d_%s.png' % (args.k, type_data))))
+    plt.gcf().savefig(os.path.join(args.path_result, type_data, ('pred-dist_k%02d_%s.png' % (args.k, type_data))))
     plt.clf()
     plt.close()
 
     if args.verbose:
         for type_test in types_test:
             for i, gt in tqdm(enumerate(gts_test[type_test]),
-                               desc=('[verbose mode] visualize localization (case:%s)' %
-                                     type_test)):
+                              desc=('[verbose mode] visualize localization (case:%s)' %
+                                    type_test)):
                 file = files_test[type_test][i]
                 img = imgs_test[type_test][i]
                 score_map = score_maps_test[type_test][i]
@@ -472,31 +458,54 @@ for type_data in types_data:
                 plt.close()
     print('--------------------------------')
 
-plt.figure(figsize=(12, 6), dpi=100, facecolor='white')
-for type_data in types_data:
+
+def main(args):
+    config = Config(args)
+
+    os.makedirs(args.path_result, exist_ok=True)
+    for type_data in config.types_data:
+        os.makedirs(os.path.join(args.path_result, type_data), exist_ok=True)
+
+    fpr_image = {}
+    tpr_image = {}
+    rocauc_image = {}
+    fpr_pixel = {}
+    tpr_pixel = {}
+    rocauc_pixel = {}
+
+    model = Spade(args)
+
+    # loop for types of data
+    for type_data in config.types_data:
+        exec_one_type_data(args, config, type_data, model)
+
+    plt.figure(figsize=(12, 6), dpi=100, facecolor='white')
+    for type_data in config.types_data:
+        plt.subplot(1, 2, 1)
+        plt.plot(fpr_image[type_data], tpr_image[type_data], label='%s ROCAUC: %.3f' % (type_data, rocauc_image[type_data]))
+        plt.subplot(1, 2, 2)
+        plt.plot(fpr_pixel[type_data], tpr_pixel[type_data], label='%s ROCAUC: %.3f' % (type_data, rocauc_pixel[type_data]))
 
     plt.subplot(1, 2, 1)
-    plt.plot(fpr_image[type_data], tpr_image[type_data],
-             label='%s ROCAUC: %.3f' % (type_data, rocauc_image[type_data]))
+    plt.title('Image-level anomaly detection accuracy (ROCAUC %)')
+    plt.grid()
+    plt.legend()
     plt.subplot(1, 2, 2)
-    plt.plot(fpr_pixel[type_data], tpr_pixel[type_data],
-             label='%s ROCAUC: %.3f' % (type_data, rocauc_pixel[type_data]))
+    plt.title('Pixel-level anomaly detection accuracy (ROCAUC %)')
+    plt.grid()
+    plt.legend()
+    plt.gcf().tight_layout()
+    plt.gcf().savefig(os.path.join(args.path_result, ('roc-curve_k%02d.png' % args.k)))
+    plt.clf()
+    plt.close()
 
-plt.subplot(1, 2, 1)
-plt.title('Image-level anomaly detection accuracy (ROCAUC %)')
-plt.grid()
-plt.legend()
-plt.subplot(1, 2, 2)
-plt.title('Pixel-level anomaly detection accuracy (ROCAUC %)')
-plt.grid()
-plt.legend()
-plt.gcf().tight_layout()
-plt.gcf().savefig(os.path.join(args.path_result, ('roc-curve_k%02d.png' % args.k)))
-plt.clf()
-plt.close()
+    rocauc_image_ = np.array([rocauc_image[type_data] for type_data in config.types_data])
+    rocauc_pixel_ = np.array([rocauc_pixel[type_data] for type_data in config.types_data])
 
-rocauc_image_ = np.array([rocauc_image[type_data] for type_data in types_data])
-rocauc_pixel_ = np.array([rocauc_pixel[type_data] for type_data in types_data])
+    print('np.mean(auc_image) = %.3f' % np.mean(rocauc_image_))
+    print('np.mean(auc_pixel) = %.3f' % np.mean(rocauc_pixel_))
 
-print('np.mean(auc_image) = %.3f' % np.mean(rocauc_image_))
-print('np.mean(auc_pixel) = %.3f' % np.mean(rocauc_pixel_))
+
+if __name__ == '__main__':
+    args = arg_parser()
+    main(args)
