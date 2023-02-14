@@ -54,7 +54,7 @@ def overlay_heatmap_on_image(img, heatmap, ratio_img=0.5):
 def arg_parser():
     parser = ArgumentParser()
     parser.add_argument('-k', '--k', type=int, default=5, help='nearest neighbor\'s k')
-    parser.add_argument('-b', '--batch_size', type=int, default=4, help='batch-size for feature extraction from ImageNet model')
+    parser.add_argument('-b', '--batch_size', type=int, default=256, help='batch-size for feature extraction from ImageNet model')
     parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection', help='parent path of data input path')
     parser.add_argument('-pr', '--path_result', type=str, default='./result', help='output path of figure image as the evaluation result')
     parser.add_argument('-c', '--cpu', action='store_true', help='use cpu')
@@ -62,8 +62,8 @@ def arg_parser():
 
     parser.add_argument('--load_size', default=256, type=int, help='画像を読み込むサイズ')
     parser.add_argument('--input_size', default=224, type=int, help='画像をトリミングするサイズ')
-    parser.add_argument('--num_cpu_max', default=1, type=int, help='')
-    parser.add_argument('--num_workers', default=0, type=int, help='')
+    parser.add_argument('--num_cpu_max', default=4, type=int, help='')
+    parser.add_argument('--num_workers', default=4, type=int, help='')
 
     args = parser.parse_args()
     return args
@@ -100,146 +100,20 @@ def exec_one_type_data(args, config, type_data, model):
         pin_memory=True,
     )
 
-    # collect filename of train
-    # path_train = os.path.join(args.path_parent, type_data, 'train/good')
-    # files_train = [os.path.join(path_train, f) for f in os.listdir(path_train)
-    #                if (os.path.isfile(os.path.join(path_train, f)) & ('.png' in f))]
-    # files_train = np.sort(np.array(files_train))
-    #
-    # train_dataset = MVTecDataset(args, config, type_data, is_train=True)
-    #
-    # # collect test-type of test
-    # types_test = os.listdir(os.path.join(args.path_parent, type_data, 'test'))
-    # types_test = np.array(sorted(types_test))
-    #
-    # # collect filename of test
-    # files_test = {}
-    # for type_test in types_test:
-    #     path_test = os.path.join(args.path_parent, type_data, 'test', type_test)
-    #     files_test[type_test] = [os.path.join(path_test, f)
-    #                              for f in os.listdir(path_test)
-    #                              if (os.path.isfile(os.path.join(path_test, f)) & ('.png' in f))]
-    #     files_test[type_test] = np.sort(np.array(files_test[type_test]))
-    #
-    # # create memory shared variable
-    # # https://zenn.dev/ymd_h/articles/4f965f3bfd510d
-    # shape = (len(files_train), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1], 3)
-    # num_elm = shape[0] * shape[1] * shape[2] * shape[3]
-    # ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-    # data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-    # data.shape = shape
-    # imgs_train = data.view(np.uint8)
-    #
-    # # define function for parallel
-    # def read_and_resize(file):
-    #     img = cv2.imread(file)[..., ::-1]  # BGR2RGB
-    #
-    #     # from the paper
-    #     img = cv2.resize(img, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
-    #     img = img[
-    #           config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
-    #           config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
-    #     ]
-    #     imgs_train[np.where(files_train == file)[0]] = img
-    #
-    # # exec imread and imresize on multiprocess
-    # mp.set_start_method('fork', force=True)
-    # p = mp.Pool(min(mp.cpu_count(), args.num_cpu_max))
-    #
-    # pool_unordered = p.imap_unordered(read_and_resize_for_train, files_train)
-    # # pool_unordered = p.imap_unordered(read_and_resize, files_train)
-    # for img in tqdm(pool_unordered, total=len(files_train), desc='read image for train'):
-    #     imgs_train[np.where(files_train == file)[0]] = img
-    # p.close()
-
-    # imgs_test = {}
-    # for type_test in types_test:
-    #     # create memory shared variable
-    #     shape = (len(files_test[type_test]), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1], 3)
-    #     num_elm = shape[0] * shape[1] * shape[2] * shape[3]
-    #     ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-    #     data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-    #     data.shape = shape
-    #     imgs_test[type_test] = data.view(np.uint8)
-    #
-    #     # define function for parallel
-    #     def read_and_resize(file):
-    #         img = cv2.imread(file)[..., ::-1]  # BGR2RGB
-    #
-    #         # from the paper
-    #         img = cv2.resize(img, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
-    #         img = img[
-    #               config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
-    #               config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
-    #         ]
-    #         imgs_test[type_test][np.where(files_test[type_test] == file)[0]] = img
-    #
-    #     # exec imread and imresize on multiprocess
-    #     mp.set_start_method('fork', force=True)
-    #     p = mp.Pool(min(mp.cpu_count(), config.num_cpu_max))
-    #
-    #     for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
-    #                   total=len(files_test[type_test]),
-    #                   desc='read image for test (case:%s)' % type_test):
-    #         pass
-    #     p.close()
-    #
-    # gts_test = {}
-    # for type_test in types_test:
-    #     # create memory shared variable
-    #     shape = (len(files_test[type_test]), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1])
-    #     if (type_test == 'good'):
-    #         gts_test[type_test] = np.zeros(shape, dtype=np.uint8)
-    #     else:
-    #         num_elm = shape[0] * shape[1] * shape[2]
-    #         ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-    #         data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-    #         data.shape = shape
-    #         gts_test[type_test] = data.view(np.uint8)
-    #
-    #         # define function for parallel
-    #         def read_and_resize(file):
-    #             file_gt = file.replace('/test/', '/ground_truth/')
-    #             file_gt = file_gt.replace('.png', '_mask.png')
-    #             gt = cv2.imread(file_gt, cv2.IMREAD_GRAYSCALE)
-    #             gt = cv2.resize(gt, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_NEAREST)
-    #             gt = gt[
-    #                  config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
-    #                  config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
-    #             ]
-    #             if np.max(gt) != 0:
-    #                 gt = (gt / np.max(gt)).astype(np.uint8)
-    #             gts_test[type_test][np.where(files_test[type_test] == file)[0]] = gt
-    #
-    #         # exec imread and imresize on multiprocess
-    #         mp.set_start_method('fork', force=True)
-    #         p = mp.Pool(min(mp.cpu_count(), args.num_cpu_max))
-    #
-    #         for _ in tqdm(p.imap_unordered(read_and_resize, files_test[type_test]),
-    #                       total=len(files_test[type_test]),
-    #                       desc='read ground-truth for test (case:%s)' % type_test):
-    #             pass
-    #         p.close()
-
     # feature extract for train
-    x_batch = []
-    outputs = []
-
+    f1_train = None
+    f2_train = None
+    f3_train = None
+    fl_train = None
     for i, img in tqdm(enumerate(train_dataloader), desc='feature extract for train'):
-    # for i, img in tqdm(enumerate(imgs_train), desc='feature extract for train'):
+        with torch.no_grad():
+            features = model(img.to(config.device))
+            f1_train = np.concatenate([f1_train, features[0]], axis=0) if f1_train is not None else features[0]
+            f2_train = np.concatenate([f2_train, features[1]], axis=0) if f2_train is not None else features[1]
+            f3_train = np.concatenate([f3_train, features[2]], axis=0) if f3_train is not None else features[2]
+            fl_train = np.concatenate([fl_train, features[3]], axis=0) if fl_train is not None else features[3]
 
-        x = torch.from_numpy(img.astype(np.float32)).to(config.device)
-        x = x / 255
-        x = x - config.MEAN
-        x = x / config.STD
-        x = x.unsqueeze(0).permute(0, 3, 1, 2)
-
-        x_batch.append(x)
-
-        if (len(x_batch) == args.batch_size) | (i == (len(imgs_train) - 1)):
-            with torch.no_grad():
-                _ = model(torch.vstack(x_batch))
-            x_batch = []
+    fl_train = fl_train.squeeze(-1).squeeze(-1)
 
     f1_train = np.vstack(outputs[0::4])
     f2_train = np.vstack(outputs[1::4])
@@ -460,10 +334,10 @@ def exec_one_type_data(args, config, type_data, model):
 
 
 def main(args):
-    config = Config(args)
+    Config(args)
 
     os.makedirs(args.path_result, exist_ok=True)
-    for type_data in config.types_data:
+    for type_data in Config.types_data:
         os.makedirs(os.path.join(args.path_result, type_data), exist_ok=True)
 
     fpr_image = {}
@@ -476,11 +350,11 @@ def main(args):
     model = Spade(args)
 
     # loop for types of data
-    for type_data in config.types_data:
-        exec_one_type_data(args, config, type_data, model)
+    for type_data in Config.types_data:
+        exec_one_type_data(args, Config, type_data, model)
 
     plt.figure(figsize=(12, 6), dpi=100, facecolor='white')
-    for type_data in config.types_data:
+    for type_data in Config.types_data:
         plt.subplot(1, 2, 1)
         plt.plot(fpr_image[type_data], tpr_image[type_data], label='%s ROCAUC: %.3f' % (type_data, rocauc_image[type_data]))
         plt.subplot(1, 2, 2)
@@ -499,8 +373,8 @@ def main(args):
     plt.clf()
     plt.close()
 
-    rocauc_image_ = np.array([rocauc_image[type_data] for type_data in config.types_data])
-    rocauc_pixel_ = np.array([rocauc_pixel[type_data] for type_data in config.types_data])
+    rocauc_image_ = np.array([rocauc_image[type_data] for type_data in Config.types_data])
+    rocauc_pixel_ = np.array([rocauc_pixel[type_data] for type_data in Config.types_data])
 
     print('np.mean(auc_image) = %.3f' % np.mean(rocauc_image_))
     print('np.mean(auc_pixel) = %.3f' % np.mean(rocauc_pixel_))

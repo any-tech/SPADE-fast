@@ -25,7 +25,7 @@ class Spade(nn.Module):
         self.backbone.layer3[-1].register_forward_hook(self.hook)
         self.backbone.avgpool.register_forward_hook(self.hook)
 
-    def hook(self, input, output):
+    def hook(self, module, input, output):
         Spade.features.append(output.detach().cpu().numpy())
 
     def forward(self, img):
