@@ -14,8 +14,9 @@ class Config:
             cls.device = torch.device('cuda:1')  # default
 
         # https://pytorch.org/vision/main/models/generated/torchvision.models.wide_resnet50_2.html#torchvision.models.Wide_ResNet50_2_Weights
-        cls.MEAN = [0.485, 0.456, 0.406]
-        cls.STD = [0.229, 0.224, 0.225]
+        cls.MEAN = torch.FloatTensor([[[0.485, 0.456, 0.406]]]).to(Config.device)
+        cls.STD = torch.FloatTensor([[[0.229, 0.224, 0.225]]]).to(Config.device)
+
         cls.SHAPE_MIDDLE = (args.load_size, args.load_size)  # (H, W)
         cls.SHAPE_INPUT = (args.input_size, args.input_size)  # (H, W)
 

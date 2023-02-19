@@ -54,7 +54,7 @@ def overlay_heatmap_on_image(img, heatmap, ratio_img=0.5):
 def arg_parser():
     parser = ArgumentParser()
     parser.add_argument('-k', '--k', type=int, default=5, help='nearest neighbor\'s k')
-    parser.add_argument('-b', '--batch_size', type=int, default=256, help='batch-size for feature extraction from ImageNet model')
+    parser.add_argument('-b', '--batch_size', type=int, default=16, help='batch-size for feature extraction from ImageNet model')
     parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection', help='parent path of data input path')
     parser.add_argument('-pr', '--path_result', type=str, default='./result', help='output path of figure image as the evaluation result')
     parser.add_argument('-c', '--cpu', action='store_true', help='use cpu')
@@ -63,98 +63,20 @@ def arg_parser():
     parser.add_argument('--load_size', default=256, type=int, help='画像を読み込むサイズ')
     parser.add_argument('--input_size', default=224, type=int, help='画像をトリミングするサイズ')
     parser.add_argument('--num_cpu_max', default=4, type=int, help='')
-    parser.add_argument('--num_workers', default=4, type=int, help='')
+    parser.add_argument('--num_workers', default=0, type=int, help='')
 
     args = parser.parse_args()
     return args
 
 
-# args = arg_parser()
-# config = Config(args)
-
-
-def read_and_resize_for_train(file):
-    img = cv2.imread(file)[..., ::-1]  # BGR2RGB
-
-    # from the paper
-    img = cv2.resize(img, (config.SHAPE_MIDDLE[1], config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
-    img = img[
-          config.pixel_crop[0]:(config.SHAPE_INPUT[0] + config.pixel_crop[0]),
-          config.pixel_crop[1]:(config.SHAPE_INPUT[1] + config.pixel_crop[1])
-    ]
-
-    # imgs_train[np.where(files_train == file)[0]] = img
-
-    return img
-
-
-def exec_one_type_data(args, config, type_data, model):
+def exec_one_type_data(args, config, type_data):
     tic()
 
-    train_dataset = MVTecDataset(args, config, type_data, is_train=True)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-        pin_memory=True,
-    )
+    dataset = MVTecDataset(args, config, type_data)
+    model = Spade(args, config, dataset)
+    model.create_normal_features()
+    model.fit()
 
-    # feature extract for train
-    f1_train = None
-    f2_train = None
-    f3_train = None
-    fl_train = None
-    for i, img in tqdm(enumerate(train_dataloader), desc='feature extract for train'):
-        with torch.no_grad():
-            features = model(img.to(config.device))
-            f1_train = np.concatenate([f1_train, features[0]], axis=0) if f1_train is not None else features[0]
-            f2_train = np.concatenate([f2_train, features[1]], axis=0) if f2_train is not None else features[1]
-            f3_train = np.concatenate([f3_train, features[2]], axis=0) if f3_train is not None else features[2]
-            fl_train = np.concatenate([fl_train, features[3]], axis=0) if fl_train is not None else features[3]
-
-    fl_train = fl_train.squeeze(-1).squeeze(-1)
-
-    f1_train = np.vstack(outputs[0::4])
-    f2_train = np.vstack(outputs[1::4])
-    f3_train = np.vstack(outputs[2::4])
-    fl_train = np.vstack(outputs[3::4]).squeeze(-1).squeeze(-1)
-
-    # feature extract for test
-    f1_test = {}
-    f2_test = {}
-    f3_test = {}
-    fl_test = {}
-    for type_test in types_test:
-
-        x_batch = []
-        outputs = []
-        for i, img in tqdm(enumerate(imgs_test[type_test]), desc='feature extract for test (case:%s)' % type_test):
-
-            x = torch.from_numpy(img.astype(np.float32)).to(device)
-            x = x / 255
-            x = x - config.MEAN
-            x = x / config.STD
-            x = x.unsqueeze(0).permute(0, 3, 1, 2)
-
-            x_batch.append(x)
-
-            if (len(x_batch) == args.batch_size) | (i == (len(imgs_test[type_test]) - 1)):
-                with torch.no_grad():
-                    _ = model(torch.vstack(x_batch))
-                x_batch = []
-
-        f1_test[type_test] = np.vstack(outputs[0::4])
-        f2_test[type_test] = np.vstack(outputs[1::4])
-        f3_test[type_test] = np.vstack(outputs[2::4])
-        fl_test[type_test] = np.vstack(outputs[3::4]).squeeze(-1).squeeze(-1)
-
-    # exec knn by final layer feature vector
-    d = fl_train.shape[1]
-    index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                 d,
-                                 faiss.GpuIndexFlatConfig())
-    index.add(fl_train)
 
     D_test = {}
     y_test = {}
@@ -347,11 +269,9 @@ def main(args):
     tpr_pixel = {}
     rocauc_pixel = {}
 
-    model = Spade(args)
-
     # loop for types of data
     for type_data in Config.types_data:
-        exec_one_type_data(args, Config, type_data, model)
+        exec_one_type_data(args, Config, type_data)
 
     plt.figure(figsize=(12, 6), dpi=100, facecolor='white')
     for type_data in Config.types_data:

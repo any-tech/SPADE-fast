@@ -289,9 +289,7 @@ for type_data in types_data:
 
     # exec knn by final layer feature vector
     d = fl_train.shape[1]
-    index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                 d,
-                                 faiss.GpuIndexFlatConfig())
+    index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), d, faiss.GpuIndexFlatConfig())
     index.add(fl_train)
 
     D_test = {}
@@ -309,12 +307,15 @@ for type_data in types_data:
         y_test[type_test] = np.ones([len(D)], dtype=np.int16)
         I_test[type_test] = I
 
-    D_list = np.concatenate([D_test['good'],
-                             np.hstack([D_test[type_test] for type_test
-                                        in types_test[types_test != 'good']])])
-    y_list = np.concatenate([y_test['good'],
-                             np.hstack([y_test[type_test] for type_test
-                                        in types_test[types_test != 'good']])])
+    D_list = np.concatenate([
+        D_test['good'],
+        np.hstack([D_test[type_test] for type_test in types_test[types_test != 'good']])
+    ])
+
+    y_list = np.concatenate([
+        y_test['good'],
+        np.hstack([y_test[type_test] for type_test in types_test[types_test != 'good']])
+    ])
 
     # calculate per-image level ROCAUC
     fpr, tpr, _ = roc_curve(y_list, D_list)

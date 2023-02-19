@@ -9,92 +9,70 @@ from multiprocessing.sharedctypes import RawArray
 import cv2
 from config import Config
 from tqdm import tqdm
-
-
-def read_and_resize(file):
-    img = cv2.imread(file)[..., ::-1]  # BGR2RGB
-    img = cv2.resize(img, (Config.SHAPE_MIDDLE[1], Config.SHAPE_MIDDLE[0]), interpolation=cv2.INTER_AREA)
-    img = img[
-          Config.pixel_crop[0]:(Config.SHAPE_INPUT[0] + Config.pixel_crop[0]),
-          Config.pixel_crop[1]:(Config.SHAPE_INPUT[1] + Config.pixel_crop[1])]
-    MVTecDataset.imgs_share_array[np.where(MVTecDataset.files == file)[0]] = img
+from utility.numpy_to_shared_memory import SharedMemory
+from torch.utils.data.sampler import BatchSampler
 
 
 class MVTecDataset(torch.utils.data.Dataset):
-    imgs_share_array = None
-    files = None
+    image_train = None
+    image_test = {}
 
-    def __init__(self, args, config, type_data, is_train=True):
+    def __init__(self, args, config, type_data):
         super().__init__()
         self.args = args
-        self.is_train = is_train
         self.type_data = type_data
         self.config = config
         self.num_channel = 3
 
-        self.transform_img = [
-            transforms.Resize(self.config.SHAPE_MIDDLE),
-            transforms.CenterCrop(self.config.SHAPE_INPUT),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=self.config.MEAN, std=self.config.STD),
-        ]
-        self.transform_img = transforms.Compose(self.transform_img)
+        # for train data
+        path = os.path.join(self.args.path_parent, self.type_data, 'train/good')
+        files = [os.path.join(path, f) for f in os.listdir(path)
+                       if (os.path.isfile(os.path.join(path, f)) & ('.png' in f))]
 
-        if self.is_train:
-            path = os.path.join(self.args.path_parent, self.type_data, 'train/good')
-            files = [os.path.join(path, f) for f in os.listdir(path)
-                           if (os.path.isfile(os.path.join(path, f)) & ('.png' in f))]
+        self.files = np.sort(np.array(files))
+        MVTecDataset.image_train = SharedMemory.get_shared_memory_from_numpy(
+            self.config,
+            self.files,
+            MVTecDataset.image_train)
 
-            MVTecDataset.files = np.sort(np.array(files))
-            self.files = np.sort(np.array(files))
+        # for test data
+        self.files_test = {}
+        self.types_test = os.listdir(os.path.join(args.path_parent, type_data, 'test'))
+        self.types_test = np.array(sorted(self.types_test))
+        for type_test in self.types_test:
+            path_test = os.path.join(args.path_parent, type_data, 'test', type_test)
+            self.files_test[type_test] = [
+                os.path.join(path_test, f) for f in os.listdir(path_test)
+                if (os.path.isfile(os.path.join(path_test, f)) & ('.png' in f))
+            ]
+            self.files_test[type_test] = np.sort(np.array(self.files_test[type_test]))
 
-            shape = (len(self.files), self.config.SHAPE_INPUT[0], self.config.SHAPE_INPUT[1], 3)
-            num_elm = shape[0] * shape[1] * shape[2] * shape[3]
-            ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
-            data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-            data.shape = shape
-            MVTecDataset.imgs_share_array = data.view(np.uint8)
+            MVTecDataset.image_test[type_test] = None
+            MVTecDataset.image_test[type_test] = SharedMemory.get_shared_memory_from_numpy(
+                self.config,
+                self.files_test[type_test],
+                MVTecDataset.image_test[type_test])
 
-            # exec imread and imresize on multiprocess
-            mp.set_start_method('fork', force=True)
-            p = mp.Pool(min(mp.cpu_count(), config.args.num_cpu_max))
+    def normalize(self, input):
+        x = torch.from_numpy(input.astype(np.float32)).to(self.config.device)
+        x = x / 255
+        x = x - self.config.MEAN
+        x = x / self.config.STD
+        x = x.permute(2, 0, 1)
+        return x
 
-            for _ in tqdm(
-                    p.imap_unordered(read_and_resize, MVTecDataset.files),
-                    total=len(MVTecDataset.files),
-                    desc='read image for train'):
-                pass
-            p.close()
-
-        else:
-            self.files_test = {}
-            types_test = os.listdir(os.path.join(args.path_parent, type_data, 'test'))
-            types_test = np.array(sorted(types_test))
-            for type_test in types_test:
-                path_test = os.path.join(args.path_parent, type_data, 'test', type_test)
-                self.files[type_test] = [os.path.join(path_test, f)
-                                         for f in os.listdir(path_test)
-                                         if (os.path.isfile(os.path.join(path_test, f)) & ('.png' in f))]
-                self.files[type_test] = np.sort(np.array(self.files[type_test]))
-
-    def __len__(self):
-        return len(self.files)
-
-    def __getitem__(self, idx):
-        if self.is_train:
-            file = self.files[idx]
-            image = PIL.Image.open(file).convert("RGB")
-            image = self.transform_img(image)
-
-            num_elm = image.shape[0] * image.shape[1] * image.shape[2]
-            ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.float32))
-            data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
-            data.shape = image[None].shape
-            shared_mem = data.view(np.float32)
-            shared_mem[0] = image
-            shared_mem = shared_mem.squeeze(0)
-
-        else:
-            pass
-
-        return shared_mem
+    # def __len__(self):
+    #     if self.is_train:
+    #         return len(self.files)
+    #     else:
+    #         return len(self.files_test[self.types_test[0]])
+    #
+    # def __getitem__(self, idx):
+    #     if self.is_train:
+    #         img = MVTecDataset.image_train[idx]
+    #     else:
+    #         img = MVTecDataset.image_test[idx]
+    #
+    #     x = self.normalize(img)
+    #
+    #     return x
