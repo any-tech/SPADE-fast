@@ -75,44 +75,8 @@ def exec_one_type_data(args, config, type_data):
     dataset = MVTecDataset(args, config, type_data)
     model = Spade(args, config, dataset)
     model.create_normal_features()
-    model.fit()
+    model.fit(type_data)
 
-
-    D_test = {}
-    y_test = {}
-    I_test = {}
-
-    type_test = 'good'
-    D, I = index.search(fl_test[type_test], args.k)
-    D_test[type_test] = np.mean(D, axis=1)
-    y_test[type_test] = np.zeros([len(D)], dtype=np.int16)
-    I_test[type_test] = I
-    for type_test in types_test[types_test != 'good']:
-        D, I = index.search(fl_test[type_test], args.k)
-        D_test[type_test] = np.mean(D, axis=1)
-        y_test[type_test] = np.ones([len(D)], dtype=np.int16)
-        I_test[type_test] = I
-
-    D_list = np.concatenate([D_test['good'],
-                             np.hstack([D_test[type_test] for type_test in types_test[types_test != 'good']])])
-    y_list = np.concatenate([y_test['good'],
-                             np.hstack([y_test[type_test] for type_test in types_test[types_test != 'good']])])
-
-    # calculate per-image level ROCAUC
-    fpr, tpr, _ = roc_curve(y_list, D_list)
-    rocauc = roc_auc_score(y_list, D_list)
-    print('%s per-image level ROCAUC: %.3f' % (type_data, rocauc))
-
-    # stock for output result
-    fpr_image[type_data] = fpr
-    tpr_image[type_data] = tpr
-    rocauc_image[type_data] = rocauc
-
-    # prep work variable for measure
-    flatten_gt_list = []
-    flatten_score_map_list = []
-    score_maps_test = {}
-    score_max = -9999
 
     # k nearest features from the gallery (k=1)
     index1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
