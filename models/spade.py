@@ -7,6 +7,8 @@ from datasets.mvtec_dataset import MVTecDataset
 import faiss
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
+import cv2
+from scipy.ndimage import gaussian_filter
 
 
 class Spade(nn.Module):
@@ -47,6 +49,12 @@ class Spade(nn.Module):
         self.fpr_image = {}
         self.tpr_image = {}
         self.rocauc_image = {}
+        self.image_level_distance = None
+        self.image_level_index = None
+
+        self.fpr_pixel = {}
+        self.tpr_pixel = {}
+        self.rocauc_pixel = {}
 
     def hook(self, module, input, output):
         self.features.append(output.detach().cpu().numpy())
@@ -128,16 +136,14 @@ class Spade(nn.Module):
 
         return distance, index_to_data, y_label
 
-    def fit(self, type_data):
-        self.create_test_features()
-
+    def calc_image_level_metrics(self, type_data):
         # exec knn by final layer feature vector
-        distance, index_todata, y_label = self.knn(self.fl_train, self.fl_test, self.args.k)
+        self.image_level_distance, self.image_level_index, y_label = self.knn(self.fl_train, self.fl_test, self.args.k)
 
         types_test_without_good = self.dataset.types_test[self.dataset.types_test != 'good']
         distance_list = np.concatenate([
-            distance['good'],
-            np.hstack([distance[type_test] for type_test in types_test_without_good])
+            self.image_level_distance['good'],
+            np.hstack([self.image_level_distance[type_test] for type_test in types_test_without_good])
         ])
 
         label_list = np.concatenate([
@@ -155,9 +161,122 @@ class Spade(nn.Module):
         self.tpr_image[type_data] = tpr
         self.rocauc_image[type_data] = rocauc
 
+    def create_score_map(self, type_test, i, indexes, train_features, test_features):
+        score_map_mean = []
+        for index, train_feature, test_feature in zip(indexes, train_features, test_features):
+            # construct a gallery of features at all pixel locations of the K nearest neighbors
+
+            f_neighbor = train_feature[self.image_level_index[type_test][i]]
+            f_query = test_feature[type_test][[i]]
+
+            # get shape
+            _, C, H, W = f_neighbor.shape
+
+            # adjust dimensions to measure distance in the channel dimension for all combinations
+            f_neighbor = f_neighbor.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
+            f_neighbor = f_neighbor.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
+            f_query = f_query.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
+            f_query = f_query.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
+
+            # k nearest features from the gallery (k=1)
+            index.reset()
+            index.add(f_neighbor)
+            pixel_level_distance, _ = index.search(f_query, 1)
+
+            # transform to scoremap
+            score_map = pixel_level_distance.reshape(H, W)
+            score_map = cv2.resize(score_map, (self.config.SHAPE_INPUT[0], self.config.SHAPE_INPUT[1]))
+            score_map_mean.append(score_map)
+
+        return score_map_mean
+
+    def calc_pixel_level_metrics(self, type_data):
         # prep work variable for measure
         flatten_gt_list = []
         flatten_score_map_list = []
         score_maps_test = {}
         score_max = -9999
+
+        # k nearest features from the gallery (k=1)
+        index1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.f1_train.shape[1], faiss.GpuIndexFlatConfig())
+        index2 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.f2_train.shape[1], faiss.GpuIndexFlatConfig())
+        index3 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.f3_train.shape[1], faiss.GpuIndexFlatConfig())
+        indexes = [index1, index2, index3]
+        train_features = [self.f1_train, self.f2_train, self.f3_train]
+        test_features = [self.f1_test, self.f2_test, self.f3_test]
+
+        for type_test in self.dataset.types_test:
+            score_maps_test[type_test] = []
+
+            for i, gt in tqdm(enumerate(MVTecDataset.gts_test[type_test]), desc='localization (case:%s)' % type_test):
+                score_map_mean = self.create_score_map(type_test, i, indexes, train_features, test_features)
+
+                # for i_nn in range(3):
+                #     # construct a gallery of features at all pixel locations of the K nearest neighbors
+                #     if i_nn == 0:
+                #         f_neighbor = self.f1_train[self.image_level_index[type_test][i]]
+                #         f_query = self.f1_test[type_test][[i]]
+                #         index_ = index1
+                #     elif i_nn == 1:
+                #         f_neighbor = self.f2_train[self.image_level_index[type_test][i]]
+                #         f_query = self.f2_test[type_test][[i]]
+                #         index_ = index2
+                #     elif i_nn == 2:
+                #         f_neighbor = self.f3_train[self.image_level_index[type_test][i]]
+                #         f_query = self.f3_test[type_test][[i]]
+                #         index_ = index3
+                #
+                #     # get shape
+                #     _, C, H, W = f_neighbor.shape
+                #
+                #     # adjust dimensions to measure distance in the channel dimension for all combinations
+                #     f_neighbor = f_neighbor.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
+                #     f_neighbor = f_neighbor.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
+                #     f_query = f_query.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
+                #     f_query = f_query.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
+                #
+                #     # k nearest features from the gallery (k=1)
+                #     index_.reset()
+                #     index_.add(f_neighbor)
+                #     pixel_level_distance, _ = index_.search(f_query, 1)
+                #
+                #     # transform to scoremap
+                #     score_map = pixel_level_distance.reshape(H, W)
+                #     score_map = cv2.resize(score_map, (self.config.SHAPE_INPUT[0], self.config.SHAPE_INPUT[1]))
+                #     score_map_mean.append(score_map)
+
+
+                # average distance between the features
+                score_map_mean = np.mean(np.array(score_map_mean), axis=0)
+                # apply gaussian smoothing on the score map
+                score_map_smooth = gaussian_filter(score_map_mean, sigma=4)
+
+                score_maps_test[type_test].append(score_map_smooth)
+                score_max = max(score_max, np.max(score_map_smooth))
+
+                flatten_gt_mask = np.concatenate(gt).ravel()
+                flatten_score_map = np.concatenate(score_map_smooth).ravel()
+                flatten_gt_list.append(flatten_gt_mask)
+                flatten_score_map_list.append(flatten_score_map)
+
+        flatten_gt_list = np.array(flatten_gt_list).reshape(-1)
+        flatten_score_map_list = np.array(flatten_score_map_list).reshape(-1)
+
+        # calculate per-pixel level ROCAUC
+        fpr, tpr, _ = roc_curve(flatten_gt_list, flatten_score_map_list)
+        rocauc = roc_auc_score(flatten_gt_list, flatten_score_map_list)
+        print('%s per-pixel level ROCAUC: %.3f' % (type_data, rocauc))
+
+        # stock for output result
+        self.fpr_pixel[type_data] = fpr
+        self.tpr_pixel[type_data] = tpr
+        self.rocauc_pixel[type_data] = rocauc
+
+    def fit(self, type_data):
+        self.create_test_features()
+
+        self.calc_image_level_metrics(type_data)
+
+        self.calc_pixel_level_metrics(type_data)
+
 

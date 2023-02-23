@@ -22,6 +22,7 @@ import time
 from models.spade import Spade
 from config import Config
 from datasets.mvtec_dataset import MVTecDataset
+from utility.visualize import *
 
 
 def tic():
@@ -77,113 +78,9 @@ def exec_one_type_data(args, config, type_data):
     model.create_normal_features()
     model.fit(type_data)
 
-
-    # k nearest features from the gallery (k=1)
-    index1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                  f1_train.shape[1],
-                                  faiss.GpuIndexFlatConfig())
-    index2 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                  f2_train.shape[1],
-                                  faiss.GpuIndexFlatConfig())
-    index3 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                  f3_train.shape[1],
-                                  faiss.GpuIndexFlatConfig())
-
-    for type_test in types_test:
-        score_maps_test[type_test] = []
-
-        for i, gt in tqdm(enumerate(gts_test[type_test]), desc='localization (case:%s)' % type_test):
-            score_map_mean = []
-
-            for i_nn in range(3):
-                # construct a gallery of features at all pixel locations of the K nearest neighbors
-                if i_nn == 0:
-                    f_neighbor = f1_train[I_test[type_test][i]]
-                    f_query = f1_test[type_test][[i]]
-                    index_ = index1
-                elif i_nn == 1:
-                    f_neighbor = f2_train[I_test[type_test][i]]
-                    f_query = f2_test[type_test][[i]]
-                    index_ = index2
-                elif i_nn == 2:
-                    f_neighbor = f3_train[I_test[type_test][i]]
-                    f_query = f3_test[type_test][[i]]
-                    index_ = index3
-
-                # get shape
-                _, C, H, W = f_neighbor.shape
-
-                # adjust dimensions to measure distance in the channel dimension for all combinations
-                f_neighbor = f_neighbor.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
-                f_neighbor = f_neighbor.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
-                f_query = f_query.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
-                f_query = f_query.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
-
-                # k nearest features from the gallery (k=1)
-                index_.reset()
-                index_.add(f_neighbor)
-                D, _ = index_.search(f_query, 1)
-
-                # transform to scoremap
-                score_map = D.reshape(H, W)
-                score_map = cv2.resize(score_map, (config.SHAPE_INPUT[0], config.SHAPE_INPUT[1]))
-                score_map_mean.append(score_map)
-
-            # average distance between the features
-            score_map_mean = np.mean(np.array(score_map_mean), axis=0)
-            # apply gaussian smoothing on the score map
-            score_map_smooth = gaussian_filter(score_map_mean, sigma=4)
-
-            score_maps_test[type_test].append(score_map_smooth)
-            score_max = max(score_max, np.max(score_map_smooth))
-
-            flatten_gt_mask = np.concatenate(gt).ravel()
-            flatten_score_map = np.concatenate(score_map_smooth).ravel()
-            flatten_gt_list.append(flatten_gt_mask)
-            flatten_score_map_list.append(flatten_score_map)
-
-    flatten_gt_list = np.array(flatten_gt_list).reshape(-1)
-    flatten_score_map_list = np.array(flatten_score_map_list).reshape(-1)
-
-    # calculate per-pixel level ROCAUC
-    fpr, tpr, _ = roc_curve(flatten_gt_list, flatten_score_map_list)
-    rocauc = roc_auc_score(flatten_gt_list, flatten_score_map_list)
-    print('%s per-pixel level ROCAUC: %.3f' % (type_data, rocauc))
-
-    # stock for output result
-    fpr_pixel[type_data] = fpr
-    tpr_pixel[type_data] = tpr
-    rocauc_pixel[type_data] = rocauc
-
     toc('elapsed time for SPADE processing in %s' % type_data)
 
-    plt.figure(figsize=(10, 8), dpi=100, facecolor='white')
-    N_test = 0
-    type_test = 'good'
-    plt.subplot(2, 1, 1)
-    plt.scatter((np.arange(len(D_test[type_test])) + N_test),
-                D_test[type_test], alpha=0.5, label=type_test)
-    plt.subplot(2, 1, 2)
-    plt.hist(D_test[type_test], alpha=0.5, label=type_test, bins=10)
-    N_test += len(D_test[type_test])
-    for type_test in types_test[types_test != 'good']:
-        plt.subplot(2, 1, 1)
-        plt.scatter((np.arange(len(D_test[type_test])) + N_test),
-                    D_test[type_test], alpha=0.5, label=type_test)
-        plt.subplot(2, 1, 2)
-        plt.hist(D_test[type_test], alpha=0.5, label=type_test, bins=10)
-        N_test += len(D_test[type_test])
-
-    plt.subplot(2, 1, 1)
-    plt.grid()
-    plt.legend()
-    plt.subplot(2, 1, 2)
-    plt.grid()
-    plt.legend()
-    plt.gcf().tight_layout()
-    plt.gcf().savefig(os.path.join(args.path_result, type_data, ('pred-dist_k%02d_%s.png' % (args.k, type_data))))
-    plt.clf()
-    plt.close()
+    draw_distance_graph(args, type_data, model.image_level_distance, dataset.types_test)
 
     if args.verbose:
         for type_test in types_test:

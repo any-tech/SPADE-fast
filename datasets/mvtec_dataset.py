@@ -16,6 +16,7 @@ from torch.utils.data.sampler import BatchSampler
 class MVTecDataset(torch.utils.data.Dataset):
     image_train = None
     image_test = {}
+    gts_test = {}
 
     def __init__(self, args, config, type_data):
         super().__init__()
@@ -23,6 +24,10 @@ class MVTecDataset(torch.utils.data.Dataset):
         self.type_data = type_data
         self.config = config
         self.num_channel = 3
+
+        MVTecDataset.image_train = None
+        MVTecDataset.image_test = {}
+        MVTecDataset.gts_test = {}
 
         # for train data
         path = os.path.join(self.args.path_parent, self.type_data, 'train/good')
@@ -53,26 +58,19 @@ class MVTecDataset(torch.utils.data.Dataset):
                 self.files_test[type_test],
                 MVTecDataset.image_test[type_test])
 
-    def normalize(self, input):
-        x = torch.from_numpy(input.astype(np.float32)).to(self.config.device)
-        x = x / 255
-        x = x - self.config.MEAN
-        x = x / self.config.STD
-        x = x.permute(2, 0, 1)
-        return x
+        # for ground truth data
+        for type_test in self.types_test:
+            # create memory shared variable
+            if type_test == 'good':
+                shape = (len(self.files_test[type_test]), self.config.SHAPE_INPUT[0], self.config.SHAPE_INPUT[1])
+                MVTecDataset.gts_test[type_test] = np.zeros(shape, dtype=np.uint8)
+            else:
+                MVTecDataset.gts_test[type_test] = None
+                MVTecDataset.gts_test[type_test] = SharedMemory.get_shared_memory_from_numpy(
+                    self.config,
+                    self.files_test[type_test],
+                    MVTecDataset.gts_test[type_test],
+                    is_ground_truth=True
+                )
 
-    # def __len__(self):
-    #     if self.is_train:
-    #         return len(self.files)
-    #     else:
-    #         return len(self.files_test[self.types_test[0]])
-    #
-    # def __getitem__(self, idx):
-    #     if self.is_train:
-    #         img = MVTecDataset.image_train[idx]
-    #     else:
-    #         img = MVTecDataset.image_test[idx]
-    #
-    #     x = self.normalize(img)
-    #
-    #     return x
+
