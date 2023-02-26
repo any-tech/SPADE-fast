@@ -56,6 +56,9 @@ class Spade(nn.Module):
         self.tpr_pixel = {}
         self.rocauc_pixel = {}
 
+        self.score_max = -9999
+        self.score_maps_test = {}
+
     def hook(self, module, input, output):
         self.features.append(output.detach().cpu().numpy())
 
@@ -157,9 +160,9 @@ class Spade(nn.Module):
         print(f'{type_data} per-image level ROCAUC: {rocauc: .3f}')
 
         # stock for output result
-        self.fpr_image[type_data] = fpr
-        self.tpr_image[type_data] = tpr
-        self.rocauc_image[type_data] = rocauc
+        self.fpr_image = fpr
+        self.tpr_image = tpr
+        self.rocauc_image = rocauc
 
     def create_score_map(self, type_test, i, indexes, train_features, test_features):
         score_map_mean = []
@@ -194,8 +197,6 @@ class Spade(nn.Module):
         # prep work variable for measure
         flatten_gt_list = []
         flatten_score_map_list = []
-        score_maps_test = {}
-        score_max = -9999
 
         # k nearest features from the gallery (k=1)
         index1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.f1_train.shape[1], faiss.GpuIndexFlatConfig())
@@ -206,53 +207,18 @@ class Spade(nn.Module):
         test_features = [self.f1_test, self.f2_test, self.f3_test]
 
         for type_test in self.dataset.types_test:
-            score_maps_test[type_test] = []
+            self.score_maps_test[type_test] = []
 
             for i, gt in tqdm(enumerate(MVTecDataset.gts_test[type_test]), desc='localization (case:%s)' % type_test):
                 score_map_mean = self.create_score_map(type_test, i, indexes, train_features, test_features)
 
-                # for i_nn in range(3):
-                #     # construct a gallery of features at all pixel locations of the K nearest neighbors
-                #     if i_nn == 0:
-                #         f_neighbor = self.f1_train[self.image_level_index[type_test][i]]
-                #         f_query = self.f1_test[type_test][[i]]
-                #         index_ = index1
-                #     elif i_nn == 1:
-                #         f_neighbor = self.f2_train[self.image_level_index[type_test][i]]
-                #         f_query = self.f2_test[type_test][[i]]
-                #         index_ = index2
-                #     elif i_nn == 2:
-                #         f_neighbor = self.f3_train[self.image_level_index[type_test][i]]
-                #         f_query = self.f3_test[type_test][[i]]
-                #         index_ = index3
-                #
-                #     # get shape
-                #     _, C, H, W = f_neighbor.shape
-                #
-                #     # adjust dimensions to measure distance in the channel dimension for all combinations
-                #     f_neighbor = f_neighbor.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
-                #     f_neighbor = f_neighbor.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
-                #     f_query = f_query.transpose(0, 2, 3, 1)  # (K, C, H, W) -> (K, H, W, C)
-                #     f_query = f_query.reshape(-1, C)         # (K, H, W, C) -> (KHW, C)
-                #
-                #     # k nearest features from the gallery (k=1)
-                #     index_.reset()
-                #     index_.add(f_neighbor)
-                #     pixel_level_distance, _ = index_.search(f_query, 1)
-                #
-                #     # transform to scoremap
-                #     score_map = pixel_level_distance.reshape(H, W)
-                #     score_map = cv2.resize(score_map, (self.config.SHAPE_INPUT[0], self.config.SHAPE_INPUT[1]))
-                #     score_map_mean.append(score_map)
-
-
                 # average distance between the features
                 score_map_mean = np.mean(np.array(score_map_mean), axis=0)
+
                 # apply gaussian smoothing on the score map
                 score_map_smooth = gaussian_filter(score_map_mean, sigma=4)
-
-                score_maps_test[type_test].append(score_map_smooth)
-                score_max = max(score_max, np.max(score_map_smooth))
+                self.score_maps_test[type_test].append(score_map_smooth)
+                self.score_max = max(self.score_max, np.max(score_map_smooth))
 
                 flatten_gt_mask = np.concatenate(gt).ravel()
                 flatten_score_map = np.concatenate(score_map_smooth).ravel()
@@ -268,9 +234,9 @@ class Spade(nn.Module):
         print('%s per-pixel level ROCAUC: %.3f' % (type_data, rocauc))
 
         # stock for output result
-        self.fpr_pixel[type_data] = fpr
-        self.tpr_pixel[type_data] = tpr
-        self.rocauc_pixel[type_data] = rocauc
+        self.fpr_pixel = fpr
+        self.tpr_pixel = tpr
+        self.rocauc_pixel = rocauc
 
     def fit(self, type_data):
         self.create_test_features()

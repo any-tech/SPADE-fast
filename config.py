@@ -28,5 +28,6 @@ class Config:
         # collect types of data
         types_data = [d for d in os.listdir(args.path_parent)
                       if os.path.isdir(os.path.join(args.path_parent, d))]
+
         cls.types_data = np.sort(np.array(types_data))
         print('types_data =', cls.types_data)
