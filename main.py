@@ -46,13 +46,23 @@ def arg_parser():
 
 def exec_one_type_data(args, config, type_data):
     tic()
+    dataset = MVTecDataset(args, type_data)
+    # dataset = MVTecDataset(args, config, type_data)
+    toc(f'----> MVTecDataset in {type_data}')
 
-    dataset = MVTecDataset(args, config, type_data)
+    tic()
     model = Spade(args, config, dataset)
-    model.create_normal_features()
-    model.fit(type_data)
+    toc(f'----> Spade() in {type_data}')
 
-    toc('elapsed time for SPADE processing in %s' % type_data)
+    tic()
+    model.create_normal_features()
+    toc(f'----> model.create_normal_features() in {type_data}')
+
+    tic()
+    model.fit(type_data)
+    toc(f'----> model.fit in {type_data}')
+
+    toc(f'----> elapsed time for SPADE processing in {type_data}')
 
     draw_distance_graph(args, type_data, model.image_level_distance, dataset.types_test)
     if args.verbose:

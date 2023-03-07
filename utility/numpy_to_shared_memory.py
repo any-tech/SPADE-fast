@@ -34,40 +34,37 @@ def read_and_resize_ground_truth(file):
 
 
 class SharedMemory:
-    shared_array = None
-    files = None
-
     @classmethod
-    def get_shared_memory_from_numpy(cls, config, files, img_array, is_ground_truth=False):
-        SharedMemory.files = files
-        SharedMemory.shared_array = img_array
+    def get_shared_memory_from_numpy(cls, files, img_array, is_ground_truth=False):
+        cls.files = files
+        cls.shared_array = img_array
 
         if not is_ground_truth:
-            shape = (len(SharedMemory.files), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1], 3)
+            shape = (len(cls.files), Config.SHAPE_INPUT[0], Config.SHAPE_INPUT[1], 3)
             num_elm = shape[0] * shape[1] * shape[2] * shape[3]
         else:
-            shape = (len(SharedMemory.files), config.SHAPE_INPUT[0], config.SHAPE_INPUT[1])
+            shape = (len(cls.files), Config.SHAPE_INPUT[0], Config.SHAPE_INPUT[1])
             num_elm = shape[0] * shape[1] * shape[2]
 
         ctype = np.ctypeslib.as_ctypes_type(np.dtype(np.uint8))
         data = np.ctypeslib.as_array(RawArray(ctype, num_elm))
         data.shape = shape
-        SharedMemory.shared_array = data.view(np.uint8)
+        cls.shared_array = data.view(np.uint8)
 
         # exec imread and imresize on multiprocess
         mp.set_start_method('fork', force=True)
-        p = mp.Pool(min(mp.cpu_count(), config.args.num_cpu_max))
+        p = mp.Pool(min(mp.cpu_count(), Config.args.num_cpu_max))
 
         func = read_and_resize
         if is_ground_truth:
             func = read_and_resize_ground_truth
 
         for _ in tqdm(
-                p.imap_unordered(func, SharedMemory.files),
-                total=len(SharedMemory.files),
+                p.imap_unordered(func, cls.files),
+                total=len(cls.files),
                 desc='read image for train'):
             pass
 
         p.close()
 
-        return SharedMemory.shared_array
+        return cls.shared_array
