@@ -212,50 +212,50 @@ GPU : NVIDIA A100 SXM4
 
 <br/>
 
-### Localization (k = 50)
+### Localization (k = 5)
 
 - bottle (test case : broken_large)
-![bottle](./assets/localization_k50_bottle_broken_large_000.png)
+![bottle](./assets/localization_k05_bottle_broken_large_000.png)
 
 - cable (test case : bent_wire)
-![cable](./assets/localization_k50_cable_bent_wire_000.png)
+![cable](./assets/localization_k05_cable_bent_wire_000.png)
 
 - capsule (test case : crack)
-![capsule](./assets/localization_k50_capsule_crack_000.png)
+![capsule](./assets/localization_k05_capsule_crack_000.png)
 
 - carpet (test case : color)
-![carpet](./assets/localization_k50_carpet_color_000.png)
+![carpet](./assets/localization_k05_carpet_color_000.png)
 
 - grid (test case : bent)
-![grid](./assets/localization_k50_grid_bent_000.png)
+![grid](./assets/localization_k05_grid_bent_000.png)
 
 - hazelnut (test case : crack)
-![hazelnut](./assets/localization_k50_hazelnut_crack_000.png)
+![hazelnut](./assets/localization_k05_hazelnut_crack_000.png)
 
 - leather (test case : color)
-![leather](./assets/localization_k50_leather_color_000.png)
+![leather](./assets/localization_k05_leather_color_000.png)
 
 - metal_nut (test case : bent)
-![metal_nut](./assets/localization_k50_metal_nut_bent_000.png)
+![metal_nut](./assets/localization_k05_metal_nut_bent_000.png)
 
 - pill (test case : color)
-![pill](./assets/localization_k50_pill_color_000.png)
+![pill](./assets/localization_k05_pill_color_000.png)
 
 - screw (test case : manipulated_front)
-![screw](./assets/localization_k50_screw_manipulated_front_000.png)
+![screw](./assets/localization_k05_screw_manipulated_front_000.png)
 
 - tile (test case : crack)
-![tile](./assets/localization_k50_tile_crack_000.png)
+![tile](./assets/localization_k05_tile_crack_000.png)
 
 - toothbrush (test case : defective)
-![toothbrush](./assets/localization_k50_toothbrush_defective_000.png)
+![toothbrush](./assets/localization_k05_toothbrush_defective_000.png)
 
 - transistor (test case : bent_lead)
-![transistor](./assets/localization_k50_transistor_bent_lead_000.png)
+![transistor](./assets/localization_k05_transistor_bent_lead_000.png)
 
 - wood (test case : color)
-![wood](./assets/localization_k50_wood_color_000.png)
+![wood](./assets/localization_k05_wood_color_000.png)
 
 - zipper (test case : broken_teeth)
-![zipper](./assets/localization_k50_zipper_broken_teeth_000.png)
+![zipper](./assets/localization_k05_zipper_broken_teeth_000.png)
 
