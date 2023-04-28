@@ -4,6 +4,7 @@ import torch
 import torchvision.models as models
 from torchinfo import summary
 
+
 class FeatExtract:
     def __init__(self, cfg_feat):
         self.shape_input = cfg_feat.SHAPE_INPUT

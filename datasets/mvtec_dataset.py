@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from utils.config import ConfigData
-from utils.shared_memory import SharedMemory
+from datasets.shared_memory import SharedMemory
 
 
 class MVTecDataset:
