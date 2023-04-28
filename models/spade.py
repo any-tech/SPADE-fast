@@ -3,11 +3,14 @@ import cv2
 from tqdm import tqdm
 import faiss
 from scipy.ndimage import gaussian_filter
-from utils.config import ConfigSpade
 
 
 class Spade:
-    def __init__(self, depth):
+    def __init__(self, cfg_spade, depth):
+        self.k = cfg_spade.k
+        self.shape_stretch = cfg_spade.shape_stretch
+
+        # prep knn index
         self.index_feat_vec = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
                                                    depth[3],
                                                    faiss.GpuIndexFlatConfig())
@@ -27,7 +30,7 @@ class Spade:
         # make feature gallery for imagewise knn
         self.index_feat_vec.reset()
         self.index_feat_vec.add(feat_vec_train)
-        k = ConfigSpade.k
+        k = self.k
 
         D = {}
         I = {}
@@ -92,8 +95,8 @@ class Spade:
 
             # transform to scoremap
             score_map = D.reshape(H, W)
-            score_map = cv2.resize(score_map, (ConfigSpade.shape_stretch[0],
-                                               ConfigSpade.shape_stretch[1]))
+            score_map = cv2.resize(score_map, (self.shape_stretch[0],
+                                               self.shape_stretch[1]))
             score_map_mean.append(score_map)
 
         # average distance between the features

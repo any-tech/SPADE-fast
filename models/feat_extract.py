@@ -3,20 +3,25 @@ from tqdm import tqdm
 import torch
 import torchvision.models as models
 from torchinfo import summary
-from utils.config import ConfigFeat
 
 class FeatExtract:
-    def __init__(self):
-        if (ConfigFeat.backbone == 'wide_resnet50_2'):
+    def __init__(self, cfg_feat):
+        self.shape_input = cfg_feat.SHAPE_INPUT
+        self.device = cfg_feat.device
+        self.MEAN = cfg_feat.MEAN
+        self.STD = cfg_feat.STD
+        self.batch_size = cfg_feat.batch_size
+
+        if (cfg_feat.backbone == 'wide_resnet50_2'):
             weights = models.Wide_ResNet50_2_Weights.IMAGENET1K_V1
             self.backbone = models.wide_resnet50_2(weights=weights)
         else:
             assert False  # not prepared...
 
         self.backbone.eval()
-        self.backbone.to(ConfigFeat.device)
-        summary(self.backbone, input_size=(1, 3, ConfigFeat.SHAPE_INPUT[0], 
-                                                 ConfigFeat.SHAPE_INPUT[1]))
+        self.backbone.to(cfg_feat.device)
+        summary(self.backbone, input_size=(1, 3, cfg_feat.SHAPE_INPUT[0], 
+                                                 cfg_feat.SHAPE_INPUT[1]))
 
         self.features = []
         self.backbone.layer1[-1].register_forward_hook(self.hook)
@@ -29,8 +34,8 @@ class FeatExtract:
 
     def survey_depth(self):
         # feature extract for train
-        x = torch.zeros(1, 3, ConfigFeat.SHAPE_INPUT[0], ConfigFeat.SHAPE_INPUT[1])
-        x = x.to(ConfigFeat.device)
+        x = torch.zeros(1, 3, self.shape_input[0], self.shape_input[1])
+        x = x.to(self.device)
         self.features = []
         with torch.no_grad():
             _ = self.backbone(x)
@@ -44,10 +49,10 @@ class FeatExtract:
 
     def normalize(self, input):
         x = torch.from_numpy(input.astype(np.float32))
-        x = x.to(ConfigFeat.device)
+        x = x.to(self.device)
         x = x / 255
-        x = x - ConfigFeat.MEAN
-        x = x / ConfigFeat.STD
+        x = x - self.MEAN
+        x = x / self.STD
         x = x.unsqueeze(0).permute(0, 3, 1, 2)
         return x
 
@@ -61,7 +66,7 @@ class FeatExtract:
                 x = self.normalize(img)
                 x_batch.append(x)
 
-                if ((len(x_batch) == ConfigFeat.batch_size) |
+                if ((len(x_batch) == self.batch_size) |
                     (i == (len(imgs) - 1))):
                     with torch.no_grad():
                         _ = self.backbone(torch.vstack(x_batch))
@@ -85,7 +90,7 @@ class FeatExtract:
                     x = self.normalize(img)
                     x_batch.append(x)
 
-                    if ((len(x_batch) == ConfigFeat.batch_size) |
+                    if ((len(x_batch) == self.batch_size) |
                         (i == (len(imgs[type_test]) - 1))):
                         with torch.no_grad():
                             _ = self.backbone(torch.vstack(x_batch))

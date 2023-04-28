@@ -39,7 +39,7 @@ def arg_parser():
     return args
 
 
-def apply_spade(type_data, feat_ext, spade):
+def apply_spade(type_data, feat_ext, spade, cfg_draw):
     print('\n----> SPADE processing in %s start' % type_data)
     tic()
 
@@ -64,9 +64,9 @@ def apply_spade(type_data, feat_ext, spade):
 
     toc(tag=('----> SPADE processing in %s end, elapsed time' % type_data))
 
-    draw_distance_graph(type_data, D_img)
+    draw_distance_graph(type_data, cfg_draw, D_img)
     if args.verbose:
-        draw_heatmap_on_image(type_data, D_pix, MVTecDataset.gts_test, D_pix_max,
+        draw_heatmap_on_image(type_data, cfg_draw, D_pix, MVTecDataset.gts_test, D_pix_max,
                               MVTecDataset.imgs_test, MVTecDataset.files_test,
                               I_nn, MVTecDataset.imgs_train)
 
@@ -74,12 +74,13 @@ def apply_spade(type_data, feat_ext, spade):
 
 
 def main(args):
-    cfg_data = ConfigData(args)
+    ConfigData(args)
     cfg_feat = ConfigFeat(args)
     cfg_spade = ConfigSpade(args)
     cfg_draw = ConfigDraw(args)
-    feat_ext = FeatExtract()
-    spade = Spade(feat_ext.survey_depth())
+
+    feat_ext = FeatExtract(cfg_feat)
+    spade = Spade(cfg_spade, feat_ext.survey_depth())
 
     os.makedirs(args.path_result, exist_ok=True)
     for type_data in ConfigData.types_data:
@@ -94,7 +95,7 @@ def main(args):
 
     # loop for types of data
     for type_data in ConfigData.types_data:
-        result = apply_spade(type_data, feat_ext, spade)
+        result = apply_spade(type_data, feat_ext, spade, cfg_draw)
 
         fpr_img[type_data] = result[0]
         tpr_img[type_data] = result[1]
@@ -104,7 +105,7 @@ def main(args):
         tpr_pix[type_data] = result[4]
         rocauc_pix[type_data] = result[5]
 
-    draw_roc_curve(fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix)
+    draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix)
 
     rocauc_img_ = np.array([rocauc_img[type_data] for type_data in ConfigData.types_data])
     rocauc_pix_ = np.array([rocauc_pix[type_data] for type_data in ConfigData.types_data])

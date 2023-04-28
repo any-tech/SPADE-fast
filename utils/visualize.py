@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from utils.config import ConfigDraw
 
 
 # https://github.com/gsurma/cnn_explainer/blob/main/utils.py
@@ -20,7 +19,7 @@ def overlay_heatmap_on_image(img, heatmap, ratio_img=0.5):
     return overlay
 
 
-def draw_distance_graph(type_data, D):
+def draw_distance_graph(type_data, cfg_draw, D):
     plt.figure(figsize=(10, 8), dpi=100, facecolor='white')
 
     # 'good' 1st
@@ -50,13 +49,13 @@ def draw_distance_graph(type_data, D):
     plt.grid()
     plt.legend()
     plt.gcf().tight_layout()
-    plt.gcf().savefig(os.path.join(ConfigDraw.path_result, type_data,
-                                   ('pred-dist_k%02d_%s.png' % (ConfigDraw.k, type_data))))
+    plt.gcf().savefig(os.path.join(cfg_draw.path_result, type_data,
+                                   ('pred-dist_k%02d_%s.png' % (cfg_draw.k, type_data))))
     plt.clf()
     plt.close()
 
 
-def draw_heatmap_on_image(type_data, D, y, D_max, imgs, files, I_nn, imgs_nn):
+def draw_heatmap_on_image(type_data, cfg_draw, D, y, D_max, imgs, files, I_nn, imgs_nn):
     for type_test in D.keys():
         for i in tqdm(range(len(D[type_test])),
                       desc='[verbose mode] visualize localization (case:%s)' % type_test):
@@ -82,21 +81,21 @@ def draw_heatmap_on_image(type_data, D, y, D_max, imgs, files, I_nn, imgs_nn):
             plt.subplot2grid((5, 2), (1, 1), rowspan=2, colspan=1)
             plt.imshow((img.astype(np.float32) *
                         (score_map / score_max)[..., None]).astype(np.uint8))
-            for j_nn, i_nn in enumerate(I_nn[type_test][i][:min(ConfigDraw.k, 6)]):
+            for j_nn, i_nn in enumerate(I_nn[type_test][i][:min(cfg_draw.k, 6)]):
                 img_nn = imgs_nn[i_nn]
                 plt.subplot2grid((5, 3), ((j_nn // 3 + 3), (j_nn % 3)), rowspan=1, colspan=1)
                 plt.imshow(img_nn)
                 if (j_nn == 0):
-                    plt.title('TOP %d NN' % min(ConfigDraw.k, 6))
-            plt.gcf().savefig(os.path.join(ConfigDraw.path_result, type_data,
+                    plt.title('TOP %d NN' % min(cfg_draw.k, 6))
+            plt.gcf().savefig(os.path.join(cfg_draw.path_result, type_data,
                                            ('localization_k%02d_%s_%s_%s' %
-                                            (ConfigDraw.k, type_data, type_test,
+                                            (cfg_draw.k, type_data, type_test,
                                              os.path.basename(file)))))
             plt.clf()
             plt.close()
 
 
-def draw_roc_curve(fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix):
+def draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix):
     plt.figure(figsize=(12, 6), dpi=100, facecolor='white')
     for type_data in fpr_img.keys():
         plt.subplot(1, 2, 1)
@@ -115,7 +114,7 @@ def draw_roc_curve(fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix):
     plt.grid()
     plt.legend()
     plt.gcf().tight_layout()
-    plt.gcf().savefig(os.path.join(ConfigDraw.path_result,
-                                   ('roc-curve_k%02d.png' % ConfigDraw.k)))
+    plt.gcf().savefig(os.path.join(cfg_draw.path_result,
+                                   ('roc-curve_k%02d.png' % cfg_draw.k)))
     plt.clf()
     plt.close()

@@ -27,41 +27,38 @@ class ConfigData:
 
 
 class ConfigFeat:
-    @classmethod
-    def __init__(cls, args):
+    def __init__(self, args):
         # input format related
-        cls.SHAPE_INPUT = (args.crop_size, args.crop_size)  # (H, W)
+        self.SHAPE_INPUT = (args.crop_size, args.crop_size)  # (H, W)
 
         # base network
-        cls.backbone = args.backbone
+        self.backbone = args.backbone
 
         # adjsut to environment
-        cls.batch_size = args.batch_size
+        self.batch_size = args.batch_size
         if args.cpu:
-            cls.device = torch.device('cpu')
+            self.device = torch.device('cpu')
         else:
-            cls.device = torch.device('cuda:0')
+            self.device = torch.device('cuda:0')
 
         # adjust to the network's learning policy and the data conditions
-        cls.MEAN = MEAN.to(cls.device)
-        cls.STD = STD.to(cls.device)
+        self.MEAN = MEAN.to(self.device)
+        self.STD = STD.to(self.device)
 
 
 class ConfigSpade:
-    @classmethod
-    def __init__(cls, args):
+    def __init__(self, args):
         # number of nearest neighbor to get patch images
-        cls.k = args.k
+        self.k = args.k
         # input format related
-        cls.shape_stretch = (args.crop_size, args.crop_size)  # (H, W)
+        self.shape_stretch = (args.crop_size, args.crop_size)  # (H, W)
 
 
 class ConfigDraw:
-    @classmethod
-    def __init__(cls, args):
+    def __init__(self, args):
         # output path of figure
-        cls.path_result = args.path_result
+        self.path_result = args.path_result
         # output detail or not (take a long time...)
-        cls.verbose = args.verbose
+        self.verbose = args.verbose
         # number of nearest neighbor to get patch images
-        cls.k = args.k
+        self.k = args.k
