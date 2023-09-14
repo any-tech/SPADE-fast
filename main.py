@@ -14,6 +14,11 @@ from models.spade import Spade
 def arg_parser():
     parser = ArgumentParser()
     parser.add_argument('-k', '--k', type=int, default=5, help='nearest neighbor\'s k')
+    parser.add_argument('-lm', '--layer_map', nargs='+', type=str,
+                        default=['layer1[-1]', 'layer2[-1]', 'layer3[-1]'],
+                        help='specify layers to extract feature map')
+    parser.add_argument('-lv', '--layer_vec', type=str, default='avgpool',
+                        help='specify layers to extract feature vector')
     parser.add_argument('-bs', '--batch_size', type=int, default=16,
                         help='batch-size for feature extraction by ImageNet model')
     parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection',
@@ -28,6 +33,8 @@ def arg_parser():
                         help='size of resizing input image')
     parser.add_argument('-cs', '--crop_size', default=224, type=int,
                         help='size of cropping after resize')
+    parser.add_argument('-dop', '--decay_outer_pixel', default=0, type=int,
+                        help='number of outer pixels to decay anomaly score')
     parser.add_argument('-n', '--num_cpu_max', default=4, type=int,
                         help='number of CPUs for parallel reading input images')
 
@@ -74,7 +81,7 @@ def apply_spade(type_data, feat_ext, spade, cfg_draw):
 
 
 def main(args):
-    ConfigData(args)
+    ConfigData(args)  # static define to speed-up
     cfg_feat = ConfigFeat(args)
     cfg_spade = ConfigSpade(args)
     cfg_draw = ConfigDraw(args)
