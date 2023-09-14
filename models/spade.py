@@ -9,22 +9,17 @@ class Spade:
     def __init__(self, cfg_spade, depth):
         self.k = cfg_spade.k
         self.shape_stretch = cfg_spade.shape_stretch
+        self.decay_outer_pixel = cfg_spade.decay_outer_pixel
 
         # prep knn index
+        self.index_feat_map = []
+        for i_depth in range(len(depth) - 1):
+            self.index_feat_map.append(faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
+                                                            depth[i_depth],
+                                                            faiss.GpuIndexFlatConfig()))
         self.index_feat_vec = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
                                                    depth[3],
                                                    faiss.GpuIndexFlatConfig())
-        self.index_feat_map_l1 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                                      depth[0],
-                                                      faiss.GpuIndexFlatConfig())
-        self.index_feat_map_l2 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                                      depth[1],
-                                                      faiss.GpuIndexFlatConfig())
-        self.index_feat_map_l3 = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(),
-                                                      depth[2],
-                                                      faiss.GpuIndexFlatConfig())
-        self.index_feat_map = [self.index_feat_map_l1, self.index_feat_map_l2,
-                               self.index_feat_map_l3]
 
     def search_nearest_neighbor(self, feat_vec_train, feat_vec_test):
         # make feature gallery for imagewise knn
@@ -52,22 +47,34 @@ class Spade:
         D_pix = {}
         score_max = -9999
         # loop for test cases
-        for type_test in feat_map_test[0].keys():
+        for type_test in feat_map_test.keys():
             D_pix[type_test] = []
 
             # loop for test data
-            for i, gt in tqdm(enumerate(feat_map_test[0][type_test]),
-                              desc='localization (case:%s)' % type_test):
+            num_data = len(feat_map_test[type_test][0])
+            for i in tqdm(range(num_data),
+                          desc='localization (case:%s)' % type_test):
                 # pickup test data
-                feat_map_test_ = [feat_map_test[0][type_test][i],
-                                  feat_map_test[1][type_test][i],
-                                  feat_map_test[2][type_test][i]]
+                feat_map_test_ = [feat_map_test[type_test][0][i],
+                                  feat_map_test[type_test][1][i],
+                                  feat_map_test[type_test][2][i]]
                 # measure distance pixelwise
                 score_map = self.measure_dist_pixelwise(feat_map_train=feat_map_train,
                                                         feat_map_test=feat_map_test_,
                                                         I_nn=I_nn[type_test][i])
+                # adjust score of outer-pixel (provisional heuristic algorithm)
+                if (self.decay_outer_pixel > 0):
+                    score_map[:self.decay_outer_pixel, :] *= 0.65
+                    score_map[-self.decay_outer_pixel:, :] *= 0.65
+                    score_map[:, :self.decay_outer_pixel] *= 0.65
+                    score_map[:, -self.decay_outer_pixel:] *= 0.65
+                # stock score map
                 D_pix[type_test].append(score_map)
                 score_max = max(score_max, np.max(score_map))
+
+            # cast list to numpy array
+            D_pix[type_test] = np.array(D_pix[type_test])
+
         return D_pix, score_max
 
     def measure_dist_pixelwise(self, feat_map_train, feat_map_test, I_nn):

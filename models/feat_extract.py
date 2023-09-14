@@ -12,6 +12,8 @@ class FeatExtract:
         self.MEAN = cfg_feat.MEAN
         self.STD = cfg_feat.STD
         self.batch_size = cfg_feat.batch_size
+        self.layer_map = cfg_feat.layer_map
+        self.layer_vec = cfg_feat.layer_vec
 
         if (cfg_feat.backbone == 'wide_resnet50_2'):
             weights = models.Wide_ResNet50_2_Weights.IMAGENET1K_V1
@@ -25,27 +27,27 @@ class FeatExtract:
                                                  cfg_feat.SHAPE_INPUT[1]))
 
         self.features = []
-        self.backbone.layer1[-1].register_forward_hook(self.hook)
-        self.backbone.layer2[-1].register_forward_hook(self.hook)
-        self.backbone.layer3[-1].register_forward_hook(self.hook)
-        self.backbone.avgpool.register_forward_hook(self.hook)
+        for layer_map in self.layer_map:
+            code = 'self.backbone.%s.register_forward_hook(self.hook)' % layer_map
+            exec(code)
+        code = 'self.backbone.%s.register_forward_hook(self.hook)' % self.layer_vec
+        exec(code)
 
     def hook(self, module, input, output):
         self.features.append(output.detach().cpu().numpy())
 
     def survey_depth(self):
         # feature extract for train
-        x = torch.zeros(1, 3, self.shape_input[0], self.shape_input[1])
+        x = torch.zeros(1, 3, self.shape_input[0], self.shape_input[1])  # RGB
         x = x.to(self.device)
         self.features = []
         with torch.no_grad():
             _ = self.backbone(x)
-        feat_map_l1 = self.features[0]
-        feat_map_l2 = self.features[1]
-        feat_map_l3 = self.features[2]
-        feat_vec_lf = self.features[3].squeeze(-1).squeeze(-1)
-        depth = [feat_map_l1.shape[1], feat_map_l2.shape[1],
-                 feat_map_l3.shape[1], feat_vec_lf.shape[1]]
+
+        depth = []
+        for i_layer_map in range(len(self.layer_map)):
+            depth.append(self.features[i_layer_map].shape[1])
+        depth.append(self.features[-1].squeeze(-1).squeeze(-1).shape[1])
         return depth
 
     def normalize(self, input):
@@ -63,7 +65,7 @@ class FeatExtract:
             x_batch = []
             self.features = []
             for i, img in tqdm(enumerate(imgs),
-                            desc='feature extract for train (case:good)'):
+                               desc='feature extract for train (case:good)'):
                 x = self.normalize(img)
                 x_batch.append(x)
 
@@ -73,21 +75,22 @@ class FeatExtract:
                         _ = self.backbone(torch.vstack(x_batch))
                     x_batch = []
 
-            feat_map_l1 = np.vstack(self.features[0::4])
-            feat_map_l2 = np.vstack(self.features[1::4])
-            feat_map_l3 = np.vstack(self.features[2::4])
-            feat_vec_lf = np.vstack(self.features[3::4]).squeeze(-1).squeeze(-1)
+            feat_map = []
+            num_layer = len(self.layer_map) + 1
+            for i_layer_map in range(len(self.layer_map)):
+                # (warning) There is a limit of np.vstack...
+                feat_map.append(np.vstack(self.features[i_layer_map::num_layer]))
+            feat_vec = np.vstack(self.features[len(self.layer_map)::num_layer])
+            feat_vec = feat_vec.squeeze(-1).squeeze(-1)
         else:
             # feature extract for test
-            feat_map_l1 = {}
-            feat_map_l2 = {}
-            feat_map_l3 = {}
-            feat_vec_lf = {}
+            feat_map = {}
+            feat_vec = {}
             for type_test in imgs.keys():
                 x_batch = []
                 self.features = []
                 for i, img in tqdm(enumerate(imgs[type_test]),
-                                desc='feature extract for test (case:%s)' % type_test):
+                                   desc='feature extract for test (case:%s)' % type_test):
                     x = self.normalize(img)
                     x_batch.append(x)
 
@@ -97,11 +100,11 @@ class FeatExtract:
                             _ = self.backbone(torch.vstack(x_batch))
                         x_batch = []
 
-                feat_map_l1[type_test] = np.vstack(self.features[0::4])
-                feat_map_l2[type_test] = np.vstack(self.features[1::4])
-                feat_map_l3[type_test] = np.vstack(self.features[2::4])
-                feat_vec_lf[type_test] = np.vstack(self.features[3::4]).squeeze(-1).squeeze(-1)
+                feat_map[type_test] = []
+                num_layer = len(self.layer_map) + 1
+                for i_layer_map in range(len(self.layer_map)):
+                    feat_map[type_test].append(np.vstack(self.features[i_layer_map::num_layer]))
+                feat_vec[type_test] = np.vstack(self.features[len(self.layer_map)::num_layer])
+                feat_vec[type_test] = feat_vec[type_test].squeeze(-1).squeeze(-1)
 
-        feat_map = [feat_map_l1, feat_map_l2, feat_map_l3]
-        return feat_map, feat_vec_lf
-    
+        return feat_map, feat_vec
