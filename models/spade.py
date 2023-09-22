@@ -9,7 +9,7 @@ class Spade:
     def __init__(self, cfg_spade, depth):
         self.k = cfg_spade.k
         self.shape_stretch = cfg_spade.shape_stretch
-        self.decay_outer_pixel = cfg_spade.decay_outer_pixel
+        self.pixel_outer_decay = cfg_spade.pixel_outer_decay
 
         # prep knn index
         self.index_feat_map = []
@@ -63,11 +63,11 @@ class Spade:
                                                         feat_map_test=feat_map_test_,
                                                         I_nn=I_nn[type_test][i])
                 # adjust score of outer-pixel (provisional heuristic algorithm)
-                if (self.decay_outer_pixel > 0):
-                    score_map[:self.decay_outer_pixel, :] *= 0.65
-                    score_map[-self.decay_outer_pixel:, :] *= 0.65
-                    score_map[:, :self.decay_outer_pixel] *= 0.65
-                    score_map[:, -self.decay_outer_pixel:] *= 0.65
+                if (self.pixel_outer_decay > 0):
+                    score_map[:self.pixel_outer_decay, :] *= 0.6
+                    score_map[-self.pixel_outer_decay:, :] *= 0.6
+                    score_map[:, :self.pixel_outer_decay] *= 0.6
+                    score_map[:, -self.pixel_outer_decay:] *= 0.6
                 # stock score map
                 D_pix[type_test].append(score_map)
                 score_max = max(score_max, np.max(score_map))

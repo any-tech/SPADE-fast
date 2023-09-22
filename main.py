@@ -13,34 +13,42 @@ from models.spade import Spade
 
 def arg_parser():
     parser = ArgumentParser()
-    parser.add_argument('-k', '--k', type=int, default=5, help='nearest neighbor\'s k')
+    # environment related
+    parser.add_argument('-n', '--num_cpu_max', default=4, type=int,
+                        help='number of CPUs for parallel reading input images')
+    parser.add_argument('-c', '--cpu', action='store_true', help='use cpu')
+    # I/O and visualization related
+    parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection',
+                        help='parent path of data input path')
+    parser.add_argument('-pr', '--path_result', type=str, default='./result',
+                        help='output path of figure image as the evaluation result')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='save visualization of localization')
+    # data loader related
+    parser.add_argument('-bs', '--batch_size', type=int, default=16,
+                        help='batch-size for feature extraction by ImageNet model')
+    parser.add_argument('-sr', '--size_resize', type=int, default=256,
+                        help='size of resizing input image')
+    parser.add_argument('-sc', '--size_crop', type=int, default=224,
+                        help='size of cropping after resize')
+    # feature extraction related
+    parser.add_argument('-b', '--backbone', type=str,
+                        default='torchvision.models.wide_resnet50_2',
+                        help='specify torchvision model with the full path')
+    parser.add_argument('-w', '--weight', type=str,
+                        default='torchvision.models.Wide_ResNet50_2_Weights.IMAGENET1K_V1',
+                        help='specify the trained weights of torchvision model with the full path.')
     parser.add_argument('-lm', '--layer_map', nargs='+', type=str,
                         default=['layer1[-1]', 'layer2[-1]', 'layer3[-1]'],
                         help='specify layers to extract feature map')
     parser.add_argument('-lv', '--layer_vec', type=str, default='avgpool',
                         help='specify layers to extract feature vector')
-    parser.add_argument('-bs', '--batch_size', type=int, default=16,
-                        help='batch-size for feature extraction by ImageNet model')
-    parser.add_argument('-pp', '--path_parent', type=str, default='./mvtec_anomaly_detection',
-                        help='parent path of data input path')
-    parser.add_argument('-pr', '--path_result', type=str, default='./result',
-                        help='output path of figure image as the evaluation result')
-    parser.add_argument('-c', '--cpu', action='store_true', help='use cpu')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='save visualization of localization')
-
-    parser.add_argument('-rs', '--resize_size', default=256, type=int,
-                        help='size of resizing input image')
-    parser.add_argument('-cs', '--crop_size', default=224, type=int,
-                        help='size of cropping after resize')
-    parser.add_argument('-dop', '--decay_outer_pixel', default=0, type=int,
+    # Nearest-Neighbor related
+    parser.add_argument('-k', '--k', type=int, default=5,
+                        help='nearest neighbor\'s k for coreset searching')
+    # post precessing related
+    parser.add_argument('-pod', '--pixel_outer_decay', type=int, default=0,
                         help='number of outer pixels to decay anomaly score')
-    parser.add_argument('-n', '--num_cpu_max', default=4, type=int,
-                        help='number of CPUs for parallel reading input images')
-
-    parser.add_argument('-b', '--backbone', default='wide_resnet50_2', type=str,
-                        help='choise ImageNet model for feature extraction',
-                        choices=['wide_resnet50_2', 'efficientnet_v2_l', 'regnet_y_128gf'])
 
     args = parser.parse_args()
     return args

@@ -1,30 +1,26 @@
+import os
 import numpy as np
 from tqdm import tqdm
 import torch
-import torchvision.models as models
+import torchvision
 from torchinfo import summary
 
 
 class FeatExtract:
     def __init__(self, cfg_feat):
-        self.shape_input = cfg_feat.SHAPE_INPUT
         self.device = cfg_feat.device
-        self.MEAN = cfg_feat.MEAN
-        self.STD = cfg_feat.STD
         self.batch_size = cfg_feat.batch_size
+        self.shape_input = cfg_feat.SHAPE_INPUT
         self.layer_map = cfg_feat.layer_map
         self.layer_vec = cfg_feat.layer_vec
+        self.MEAN = cfg_feat.MEAN
+        self.STD = cfg_feat.STD
 
-        if (cfg_feat.backbone == 'wide_resnet50_2'):
-            weights = models.Wide_ResNet50_2_Weights.IMAGENET1K_V1
-            self.backbone = models.wide_resnet50_2(weights=weights)
-        else:
-            assert False  # not prepared...
-
+        code = 'self.backbone = %s(weights=%s)' % (cfg_feat.backbone, cfg_feat.weight)
+        exec(code)
         self.backbone.eval()
-        self.backbone.to(cfg_feat.device)
-        summary(self.backbone, input_size=(1, 3, cfg_feat.SHAPE_INPUT[0], 
-                                                 cfg_feat.SHAPE_INPUT[1]))
+        self.backbone.to(self.device)
+        summary(self.backbone, input_size=(1, 3, *self.shape_input))
 
         self.features = []
         for layer_map in self.layer_map:

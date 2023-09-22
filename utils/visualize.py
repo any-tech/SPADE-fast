@@ -65,8 +65,9 @@ def draw_heatmap_on_image(type_data, cfg_draw, D, y, D_max, imgs, files, I_nn, i
             score_max = D_max
             gt = y[type_test][i]
 
-            plt.figure(figsize=(8, 11), dpi=100, facecolor='white')
-            plt.rcParams['font.size'] = 8
+            plt.figure(figsize=(8.5, 12), dpi=100, facecolor='white')
+            plt.rcParams['font.size'] = 5
+
             plt.subplot2grid((5, 3), (0, 0), rowspan=1, colspan=1)
             plt.imshow(img)
             plt.title('%s : %s' % (file.split('/')[-2], file.split('/')[-1]))
@@ -76,21 +77,25 @@ def draw_heatmap_on_image(type_data, cfg_draw, D, y, D_max, imgs, files, I_nn, i
             plt.imshow(score_map)
             plt.colorbar()
             plt.title('max score : %.2f' % score_max)
-            plt.subplot2grid((5, 2), (1, 0), rowspan=2, colspan=1)
+            plt.subplot2grid((23, 2), (5, 0), rowspan=7, colspan=1)
             plt.imshow(overlay_heatmap_on_image(img, (score_map / score_max)))
-            plt.subplot2grid((5, 2), (1, 1), rowspan=2, colspan=1)
+            plt.subplot2grid((23, 2), (5, 1), rowspan=7, colspan=1)
             plt.imshow((img.astype(np.float32) *
                         (score_map / score_max)[..., None]).astype(np.uint8))
-            for j_nn, i_nn in enumerate(I_nn[type_test][i][:min(cfg_draw.k, 6)]):
+            for j_nn, i_nn in enumerate(I_nn[type_test][i][:min(cfg_draw.k, 12)]):
                 img_nn = imgs_nn[i_nn]
-                plt.subplot2grid((5, 3), ((j_nn // 3 + 3), (j_nn % 3)), rowspan=1, colspan=1)
+                plt.subplot2grid((7, 4), ((j_nn // 4 + 4), (j_nn % 4)), rowspan=1, colspan=1)
                 plt.imshow(img_nn)
                 if (j_nn == 0):
-                    plt.title('TOP %d NN' % min(cfg_draw.k, 6))
-            plt.gcf().savefig(os.path.join(cfg_draw.path_result, type_data,
-                                           ('localization_k%02d_%s_%s_%s' %
-                                            (cfg_draw.k, type_data, type_test,
-                                             os.path.basename(file)))))
+                    plt.title('TOP %d NN' % min(cfg_draw.k, 12))
+            filename_out = os.path.join(cfg_draw.path_result, type_data,
+                                        ('localization_k%02d_%s_%s_%s' %
+                                         (cfg_draw.k, type_data, type_test,
+                                          os.path.basename(file))))
+            ext_tmp = '.' + filename_out.split('.')[-1]
+            score_tmp = np.max(score_map) / score_max * 100
+            filename_out = filename_out.replace(ext_tmp, '_s%03d.png' % score_tmp)
+            plt.gcf().savefig(filename_out)
             plt.clf()
             plt.close()
 

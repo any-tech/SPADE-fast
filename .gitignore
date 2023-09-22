@@ -128,8 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .idea
-
-# etc...
 faiss
 result
-*.png
