@@ -80,7 +80,7 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 | cable | - | 84.7 | 84.7 | 80.9 |
 | capsule | - | 90.5 | 89.7 | 81.8 |
 | carpet | - | 92.4 | 92.5 | 91.8 |
-| grid | - | 49.5 | 45.7 | 33.0 |
+| grid | - | 49.5 | 45.8 | 33.0 |
 | hazelnut | - | 89.3 | 88.8 | 85.3 |
 | leather | - | 94.9 | 94.6 | 92.8 |
 | metal_nut | - | 71.2 | 70.0 | 62.1 |
