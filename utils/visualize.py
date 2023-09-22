@@ -19,7 +19,7 @@ def overlay_heatmap_on_image(img, heatmap, ratio_img=0.5):
     return overlay
 
 
-def draw_distance_graph(type_data, cfg_draw, D):
+def draw_distance_graph(type_data, cfg_draw, D, rocauc_img):
     plt.figure(figsize=(10, 8), dpi=100, facecolor='white')
 
     # 'good' 1st
@@ -43,6 +43,7 @@ def draw_distance_graph(type_data, cfg_draw, D):
         N_test += len(D[type_test])
 
     plt.subplot(2, 1, 1)
+    plt.title('imagewise anomaly detection accuracy (ROCAUC %%) : %.3f' % rocauc_img)
     plt.grid()
     plt.legend()
     plt.subplot(2, 1, 2)
@@ -50,7 +51,8 @@ def draw_distance_graph(type_data, cfg_draw, D):
     plt.legend()
     plt.gcf().tight_layout()
     plt.gcf().savefig(os.path.join(cfg_draw.path_result, type_data,
-                                   ('pred-dist_k%02d_%s.png' % (cfg_draw.k, type_data))))
+                                   ('pred-dist_%s_k%02d_r%04d.png' %
+                                    (type_data, cfg_draw.k, round(rocauc_img * 1000)))))
     plt.clf()
     plt.close()
 
@@ -94,13 +96,14 @@ def draw_heatmap_on_image(type_data, cfg_draw, D, y, D_max, imgs, files, I_nn, i
                                           os.path.basename(file))))
             ext_tmp = '.' + filename_out.split('.')[-1]
             score_tmp = np.max(score_map) / score_max * 100
-            filename_out = filename_out.replace(ext_tmp, '_s%03d.png' % score_tmp)
+            filename_out = filename_out.replace(ext_tmp, '_s%03d.png' % round(score_tmp))
             plt.gcf().savefig(filename_out)
             plt.clf()
             plt.close()
 
 
-def draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix):
+def draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, rocauc_img_mean,
+                             fpr_pix, tpr_pix, rocauc_pix, rocauc_pix_mean):
     plt.figure(figsize=(12, 6), dpi=100, facecolor='white')
     for type_data in fpr_img.keys():
         plt.subplot(1, 2, 1)
@@ -111,15 +114,17 @@ def draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, roc
                  label='%s ROCAUC: %.3f' % (type_data, rocauc_pix[type_data]))
 
     plt.subplot(1, 2, 1)
-    plt.title('imagewise anomaly detection accuracy (ROCAUC %)')
+    plt.title('imagewise anomaly detection accuracy (ROCAUC %%) : mean %.3f' % rocauc_img_mean)
     plt.grid()
     plt.legend()
     plt.subplot(1, 2, 2)
-    plt.title('pixelwise anomaly detection accuracy (ROCAUC %)')
+    plt.title('pixelwise anomaly detection accuracy (ROCAUC %%) : mean %.3f' % rocauc_pix_mean)
     plt.grid()
     plt.legend()
     plt.gcf().tight_layout()
     plt.gcf().savefig(os.path.join(cfg_draw.path_result,
-                                   ('roc-curve_k%02d.png' % cfg_draw.k)))
+                                   ('roc-curve_k%02d_rim%04d_rpm%04d.png' %
+                                    (cfg_draw.k, round(rocauc_img_mean * 1000),
+                                                 round(rocauc_pix_mean * 1000)))))
     plt.clf()
     plt.close()

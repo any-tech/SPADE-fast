@@ -79,7 +79,7 @@ def apply_spade(type_data, feat_ext, spade, cfg_draw):
 
     toc(tag=('----> SPADE processing in %s end, elapsed time' % type_data))
 
-    draw_distance_graph(type_data, cfg_draw, D_img)
+    draw_distance_graph(type_data, cfg_draw, D_img, rocauc_img)
     if args.verbose:
         draw_heatmap_on_image(type_data, cfg_draw, D_pix, MVTecDataset.gts_test, D_pix_max,
                               MVTecDataset.imgs_test, MVTecDataset.files_test,
@@ -120,16 +120,20 @@ def main(args):
         tpr_pix[type_data] = result[4]
         rocauc_pix[type_data] = result[5]
 
-    draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, fpr_pix, tpr_pix, rocauc_pix)
+    rocauc_img_mean = np.array([rocauc_img[type_data] for type_data in ConfigData.types_data])
+    rocauc_img_mean = np.mean(rocauc_img_mean)
+    rocauc_pix_mean = np.array([rocauc_pix[type_data] for type_data in ConfigData.types_data])
+    rocauc_pix_mean = np.mean(rocauc_pix_mean)
 
-    rocauc_img_ = np.array([rocauc_img[type_data] for type_data in ConfigData.types_data])
-    rocauc_pix_ = np.array([rocauc_pix[type_data] for type_data in ConfigData.types_data])
+    draw_roc_curve(cfg_draw, fpr_img, tpr_img, rocauc_img, rocauc_img_mean,
+                             fpr_pix, tpr_pix, rocauc_pix, rocauc_pix_mean)
+
     for type_data in ConfigData.types_data:
         print('rocauc_img[%s] = %.3f' % (type_data, rocauc_img[type_data]))
-    print('np.mean(rocauc_img_) = %.3f' % np.mean(rocauc_img_))
+    print('rocauc_img[mean] = %.3f' % rocauc_img_mean)
     for type_data in ConfigData.types_data:
         print('rocauc_pix[%s] = %.3f' % (type_data, rocauc_pix[type_data]))
-    print('np.mean(rocauc_pix_) = %.3f' % np.mean(rocauc_pix_))
+    print('rocauc_pix[mean] = %.3f' % rocauc_pix_mean)
 
 
 if __name__ == '__main__':
