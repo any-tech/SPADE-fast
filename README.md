@@ -76,21 +76,21 @@ Below is the implementation result of the test set ROCAUC on the `MVTec AD` data
 
 | | Paper | This Repo<br/>k=3 | This Repo<br/>k=5 | This Repo<br/>k=50 |
 | - | - | - | - | - |
-| bottle | - | 96.5 | 96.6 | 95.7 |
+| bottle | - | 96.5 | 96.7 | 95.7 |
 | cable | - | 84.7 | 84.7 | 80.9 |
 | capsule | - | 90.5 | 89.7 | 81.8 |
 | carpet | - | 92.4 | 92.5 | 91.8 |
 | grid | - | 49.5 | 45.8 | 33.0 |
 | hazelnut | - | 89.3 | 88.8 | 85.3 |
 | leather | - | 94.9 | 94.6 | 92.8 |
-| metal_nut | - | 71.2 | 70.0 | 62.1 |
+| metal_nut | - | 71.2 | 70.1 | 62.1 |
 | pill | - | 79.9 | 79.2 | 78.0 |
 | screw | - | 67.1 | 65.3 | 49.8 |
 | tile | - | 96.7 | 96.4 | 95.8 |
-| toothbrush | - | 86.7 | 86.9 | 75.6 |
+| toothbrush | - | 86.7 | 86.4 | 75.6 |
 | transistor | - | 90.4 | 90.0 | 87.4 |
 | wood | - | 97.0 | 96.8 | 96.6 |
-| zipper | - | 96.4 | 96.4 | 95.6 |
+| zipper | - | 96.4 | 96.5 | 95.6 |
 | Average | 85.5 | 85.5 | 84.9 | 80.1 |
 
 <br/>
