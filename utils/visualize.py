@@ -90,13 +90,14 @@ def draw_heatmap_on_image(type_data, cfg_draw, D, y, D_max, imgs, files, I_nn, i
                 plt.imshow(img_nn)
                 if (j_nn == 0):
                     plt.title('TOP %d NN' % min(cfg_draw.k, 12))
-            filename_out = os.path.join(cfg_draw.path_result, type_data,
-                                        ('localization_k%02d_%s_%s_%s' %
-                                         (cfg_draw.k, type_data, type_test,
-                                          os.path.basename(file))))
-            ext_tmp = '.' + filename_out.split('.')[-1]
+
             score_tmp = np.max(score_map) / score_max * 100
-            filename_out = filename_out.replace(ext_tmp, '_s%03d.png' % round(score_tmp))
+            filename_out = os.path.join(cfg_draw.path_result, type_data,
+                                        ('localization_%s_%s_%s_k%02d_s%03d.png' %
+                                         (type_data, type_test, 
+                                          os.path.basename(file).split('.')[0],
+                                          cfg_draw.k, round(score_tmp))))
+
             plt.gcf().savefig(filename_out)
             plt.clf()
             plt.close()
