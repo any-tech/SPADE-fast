@@ -259,3 +259,9 @@ GPU : NVIDIA A100 SXM4
 - zipper (test case : broken_teeth)
 ![zipper](./assets/localization_k05_zipper_broken_teeth_000.png)
 
+<br/>
+
+### For your infomation
+
+We also implement a similar algorithm, PatchCore.<br/>
+https://github.com/any-tech/PatchCore-ex/tree/main
